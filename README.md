@@ -11,13 +11,13 @@ A unique ID generator based on a timestamp or time series, inspired by Twitter's
 
 1. The maximum 126 bits
 2. Customize the width of each bits segment
-3. Customize the sequence of bits segment
+3. Customize the sequence of bits segments
 4. Support customize encoders
 5. BASE36 is default, using the go package `strconv.FormatInt`
 6. An improved BASE64 encoder to encode/decode identifiers
 7. Customize the options or use the provided default settings
 8. Supports random or auto-increment identifiers. Note: auto-increment identifiers are still random and not strictly increment
-9. Provides a traditional snowflake algorithm (fixed width and position), with better performance
+9. Provides a classic snowflake algorithm (fixed width and position), with better performance
 10. Data source types
     - Timestamps of various precision: nanosecond, millisecond, microsecond, and second
     - Various date and time values: year, month, day, week, hour, minute, second, millisecond, and the number of days and weeks in a year
