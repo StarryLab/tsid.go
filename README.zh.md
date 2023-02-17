@@ -10,6 +10,15 @@
 
 > **注意** ❗️ 选项中必须包括时间戳（任意精度）及序号类型的位段
 
+## 开始 🛠️
+
+- 源码库 [github.com/StarryLab/tsid.go](https://github.com/StarryLab/tsid.go)
+- 文档 [pkg.go.dev](https://pkg.go.dev/github.com/StarryLab/tsid.go@v1.0.0-alpha)
+
+```bash
+go get github.com/StarryLab/tsid.go
+```
+
 ## 特点 ✨
 
 1. 最大有效数据位可达 126 位，即两个 uint64 位宽
