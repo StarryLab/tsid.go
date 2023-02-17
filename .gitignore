@@ -1,0 +1,61 @@
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# ## General settings ##
+
+# 1. Resersed
+!**/.git*
+
+# 2. Ignored wildcard
+**/.*
+/temp
+
+# ## Windows ##
+
+# 1. Windows thumbnail cache files
+[Tt]humbs.db
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+
+# 2. Temporary and compressed files
+*.bak
+*.old
+*.zip
+*.tar.gz
+*.rar
+*.pdf
+*.xz
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# 3. Dump file
+*.stackdump
+
+# 4. Folder config file
+[Dd]esktop.ini
+
+# 5. Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# 6. Windows Installer
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# 7. Windows shortcuts
+*.lnk
