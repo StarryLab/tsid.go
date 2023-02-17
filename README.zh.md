@@ -3,6 +3,9 @@
 
 [English](./README.md) | 中文
 
+![GitHub](https://img.shields.io/github/license/StarryLab/tsid.go) ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/StarryLab/tsid.go) [![Go Reference](https://pkg.go.dev/badge/github.com/StarryLab/tsid.go@v1.0.0-alpha.svg)](https://pkg.go.dev/github.com/StarryLab/tsid.go@v1.0.0-alpha) ![GitHub release (latest SemVer including pre-releases)](https://img.shields.io/github/v/release/StarryLab/tsid.go?include_prereleases&sort=semver) ![GitHub Repo stars](https://img.shields.io/github/stars/StarryLab/tsid.go?style=social)
+![GitHub last commit](https://img.shields.io/github/last-commit/StarryLab/tsid.go) ![GitHub repo size](https://img.shields.io/github/repo-size/StarryLab/tsid.go) ![GitHub repo file count](https://img.shields.io/github/directory-file-count/StarryLab/tsid.go)
+
 根据 Twitter 的雪花算法思想开发的唯一标识符生成器，相较于已有雪花算法作了很多改进和扩展
 
 > **注意** ❗️ 选项中必须包括时间戳（任意精度）及序号类型的位段

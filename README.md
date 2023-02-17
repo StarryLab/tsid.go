@@ -3,6 +3,9 @@
 
 English | [中文](./README.zh.md)
 
+![GitHub](https://img.shields.io/github/license/StarryLab/tsid.go) ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/StarryLab/tsid.go) [![Go Reference](https://pkg.go.dev/badge/github.com/StarryLab/tsid.go@v1.0.0-alpha.svg)](https://pkg.go.dev/github.com/StarryLab/tsid.go@v1.0.0-alpha) ![GitHub release (latest SemVer including pre-releases)](https://img.shields.io/github/v/release/StarryLab/tsid.go?include_prereleases&sort=semver) ![GitHub Repo stars](https://img.shields.io/github/stars/StarryLab/tsid.go?style=social)
+![GitHub last commit](https://img.shields.io/github/last-commit/StarryLab/tsid.go) ![GitHub repo size](https://img.shields.io/github/repo-size/StarryLab/tsid.go) ![GitHub repo file count](https://img.shields.io/github/directory-file-count/StarryLab/tsid.go)
+
 A unique ID generator based on a timestamp or time series, inspired by Twitter's Snowflake.
 
 > **Woohoo!** ❗️ Timestamp segment and sequence segment is REQUIRED!
