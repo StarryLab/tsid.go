@@ -75,7 +75,7 @@ func (b *Builder) tick() (t time.Time, now, sequence int64) {
 	return
 }
 
-// rand generates a secure random number with a width specified by w,
+// Rand generates a secure random number with a width specified by w,
 // which is the expected bit width, value range is [1, 63].
 func Rand(w byte) int64 {
 	if w < 1 || w > 63 {
