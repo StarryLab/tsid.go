@@ -35,6 +35,25 @@ type ID struct {
 	Signed bool
 }
 
+func (id *ID) String() string {
+	s := strings.Builder{}
+	s.Grow(27)
+	if id.Signed {
+		// 1 character
+		s.WriteByte('.')
+	}
+	if id.Ext > 0 {
+		// 13 characters
+		s.WriteString(strconv.FormatInt(id.Ext, 36))
+	}
+	if id.Main > 0 {
+		m := strconv.FormatInt(id.Main, 36)
+		// 13 characters
+		s.WriteString(fmt.Sprintf("%013s", m))
+	}
+	return s.String()
+}
+
 type DebugInfo struct {
 	Now,
 	Sequence int64
@@ -138,6 +157,79 @@ func Rand(w byte) int64 {
 	return int64(v & uint64(m))
 }
 
+func (b *Builder) time(t DateTimeType, tr time.Time, now int64) (f int64) {
+	switch t {
+	case TimestampNanoseconds:
+		f = now * nsPerMilliseconds
+	case TimestampMicroseconds:
+		f = now * usPerMilliseconds
+	case TimestampMilliseconds:
+		f = now
+	case TimestampSeconds:
+		f = now / 1_000
+	case TimeMillisecond:
+		f = now % 1000
+	case TimeSecond:
+		f = int64(tr.Second())
+	case TimeMinute:
+		f = int64(tr.Minute())
+	case TimeHour:
+		f = int64(tr.Hour())
+	case TimeDay:
+		f = int64(tr.Day())
+	case TimeMonth:
+		f = int64(tr.Month())
+	case TimeYear:
+		f = int64(tr.Year())
+	case TimeYearDay:
+		f = int64(tr.YearDay())
+	case TimeWeekday:
+		f = int64(tr.Weekday())
+	case TimeWeekNumber:
+		f = int64(tr.YearDay()/7 + 1)
+	default:
+		// TimestampMilliseconds
+		f = now
+	}
+	return f
+}
+
+func (b *Builder) val(segment *Bits, tr time.Time, now int64, seq int64, argv []int64, a int, f int64) int64 {
+	key := segment.Key
+	switch segment.Source {
+	case Args:
+		if a < len(argv) {
+			f = argv[a]
+		}
+	case OS:
+		if len(key) > 0 {
+			if y, z := os.LookupEnv(key); z {
+				if w, r := strconv.ParseInt(y, 10, 64); r != nil {
+					f = w
+				}
+			}
+		}
+	case Settings:
+		if len(key) > 0 {
+			if y, z := b.options.settings[key]; z {
+				f = y
+			}
+		}
+	case SequenceID:
+		f = seq
+	case DateTime:
+		f = b.time(DateTimeType(segment.Index), tr, now)
+	case RandomID:
+		f = Rand(segment.Width)
+	case Provider:
+		p := b.options.dataSource
+		if p != nil {
+			f = p.Read(segment.Key, segment.Index)
+		}
+	}
+	return f
+}
+
 func (b *Builder) Next(argv ...int64) (id *ID, info *DebugInfo) {
 	if !b.ready {
 		return nil, nil
@@ -153,72 +245,10 @@ func (b *Builder) Next(argv ...int64) (id *ID, info *DebugInfo) {
 	a := 0
 	for _, segment := range b.options.segments {
 		f := segment.Value
-		key := segment.Key
 		mask := segment.mask
-		switch segment.Source {
-		case Static:
-		case Args:
-			if a < len(argv) {
-				f = argv[a]
-			}
+		f = b.val(&segment, tr, now, seq, argv, a, f)
+		if segment.Source == Args {
 			a++
-		case OS:
-			if len(key) > 0 {
-				if y, z := os.LookupEnv(key); z {
-					if w, r := strconv.ParseInt(y, 10, 64); r != nil {
-						f = w
-					}
-				}
-			}
-		case Settings:
-			if len(key) > 0 {
-				if y, z := b.options.settings[key]; z {
-					f = y
-				}
-			}
-		case SequenceID:
-			f = seq
-		case DateTime:
-			switch DateTimeType(segment.Index) {
-			case TimestampNanoseconds:
-				f = now * nsPerMilliseconds
-			case TimestampMicroseconds:
-				f = now * usPerMilliseconds
-			case TimestampMilliseconds:
-				f = now
-			case TimestampSeconds:
-				f = now / 1_000
-			case TimeMillisecond:
-				f = now % 1000
-			case TimeSecond:
-				f = int64(tr.Second())
-			case TimeMinute:
-				f = int64(tr.Minute())
-			case TimeHour:
-				f = int64(tr.Hour())
-			case TimeDay:
-				f = int64(tr.Day())
-			case TimeMonth:
-				f = int64(tr.Month())
-			case TimeYear:
-				f = int64(tr.Year())
-			case TimeYearDay:
-				f = int64(tr.YearDay())
-			case TimeWeekday:
-				f = int64(tr.Weekday())
-			case TimeWeekNumber:
-				f = int64(tr.YearDay()/7 + 1)
-			default:
-				// TimestampMilliseconds
-				f = now
-			}
-		case RandomID:
-			f = Rand(segment.Width)
-		case Provider:
-			p := b.options.dataSource
-			if p != nil {
-				f = p.Read(segment.Key, segment.Index)
-			}
 		}
 		if b.Debug {
 			vs = append(vs, f)
@@ -270,27 +300,17 @@ func (b *Builder) Next(argv ...int64) (id *ID, info *DebugInfo) {
 	return id, info
 }
 
+// NextString returns the next ID as a string.
 func (b *Builder) NextString(argv ...int64) string {
 	i, _ := b.Next(argv...)
 	e := b.Encoder
 	if e == nil {
-		s := strings.Builder{}
-		s.Grow(27)
-		if i.Signed {
-			s.WriteByte('.')
-		}
-		if i.Ext > 0 {
-			s.WriteString(strconv.FormatInt(i.Ext, 36))
-		}
-		if i.Main > 0 {
-			m := strconv.FormatInt(i.Main, 36)
-			s.WriteString(fmt.Sprintf("%013s", m))
-		}
-		return s.String()
+		return i.String()
 	}
 	return e.Encode(i)
 }
 
+// ResetEpoch resets the epoch.
 func (b *Builder) ResetEpoch(epoch int64) error {
 	if epoch < 0 {
 		return invalidOption("EpochMS", errorEpochTooSmall)
@@ -299,7 +319,7 @@ func (b *Builder) ResetEpoch(epoch int64) error {
 	if epoch > now {
 		return invalidOption("EpochMS", errorEpochTooLarge)
 	}
-	min := int64(Min)
+	min := int64(EpochReservedDays * msPerDay)
 	if b.options.Min > min {
 		min = b.options.Min
 	}
@@ -310,85 +330,112 @@ func (b *Builder) ResetEpoch(epoch int64) error {
 	return nil
 }
 
-func Make(opt Options) (m *Builder, err error) {
-	if opt.EpochMS <= 0 {
-		if EpochMS < 0 {
-			return nil, invalidOption("EpochMS", errorEpochTooSmall)
+// New returns a new Builder instance.
+func New(opt Options) (m *Builder, err error) {
+	return Make(opt)
+}
+
+var checklist = []struct {
+	test    func(*Options) bool
+	segment string
+	reason  string
+}{
+	{func(opt *Options) bool { return opt.Min <= 0 && EpochMS < 0 }, "EpochMS", errorEpochTooSmall},
+	{func(opt *Options) bool { return opt.EpochMS > time.Now().UnixNano()/nsPerMilliseconds }, "EpochMS", errorEpochTooLarge},
+	{func(opt *Options) bool { return len(opt.segments) <= 0 }, "Segments", errorSegmentsEmpty},
+	{func(opt *Options) bool { return len(opt.segments) > SegmentsLimit }, "Segments", errorSegmentsTooMany},
+	{func(opt *Options) bool {
+		min := int64(EpochReservedDays * msPerDay)
+		if opt.Min > min {
+			min = opt.Min
 		}
+		return time.Now().UnixNano()/nsPerMilliseconds-opt.EpochMS < min
+	}, "EpochMS", errorTooPoor},
+}
+
+func checkSegment(opt *Options, index int, segment *Bits, required *map[DataSource]int) (v int64, err error) {
+	v = segment.Value
+	switch segment.Source {
+	case Static:
+	case Args:
+	case OS:
+	case Settings:
+	case SequenceID:
+		delete(*required, SequenceID)
+		v = 0
+	case RandomID:
+		v = 0
+	case DateTime:
+		switch segment.Index {
+		case int(TimestampNanoseconds),
+			int(TimestampMicroseconds),
+			int(TimestampMilliseconds),
+			int(TimestampSeconds):
+			delete(*required, DateTime)
+		}
+		v = 0
+	case Provider:
+		p := opt.dataSource
+		if p == nil {
+			err = invalidOption("Segments", errorDataSource)
+			return
+		}
+	default:
+		err = invalidOption("Segments", errorInvalidType)
+		return
+	}
+	return v, nil
+}
+
+// Make returns a new Builder instance.
+func Make(opt Options) (m *Builder, err error) {
+	for _, rule := range checklist {
+		if rule.test(&opt) {
+			return nil, invalidOption(rule.segment, rule.reason)
+		}
+	}
+	if opt.EpochMS <= 0 && EpochMS > 0 {
 		opt.EpochMS = EpochMS
 	}
-	now := time.Now().UnixNano() / nsPerMilliseconds
-	if opt.EpochMS > now {
-		return nil, invalidOption("EpochMS", errorEpochTooLarge)
-	}
-	min := Min
-	if opt.Min > min {
-		min = opt.Min
-	}
-	if now-opt.EpochMS < min {
-		return nil, invalidOption("EpochMS", errorTooPoor)
-	}
-	t := byte(0)
 	// Options MUST include DateTime segment AND SequenceID segment.
 	required := map[DataSource]int{
 		DateTime:   7,
 		SequenceID: 0,
 	}
-	if len(opt.segments) < 1 {
-		return nil, invalidOption("Segments", errorSegmentTooFew)
-	}
 	sequenceWidth := byte(0)
+	t := byte(0)
 	for index, segment := range opt.segments {
 		w := segment.Width
 		if w < 1 || w > bitsMaxWidth {
-			return nil, invalidOption("Segments", errorWidthInvalid)
+			err = invalidOption("Segments", errorWidthInvalid)
+			return
 		}
 		if t+w > bitsMaxWidth*2 {
-			return nil, invalidOption("Segments", errorWidthTooLarge)
+			err = invalidOption("Segments", errorWidthTooLarge)
+			return
 		}
 		t += w
 		mask := int64(-1 ^ (-1 << w))
 		opt.segments[index].mask = mask
-		v := segment.Value
-		switch segment.Source {
-		case Static:
-		case Args:
-		case OS:
-		case Settings:
-		case SequenceID:
-			if w > sequenceWidth {
-				sequenceWidth = segment.Width
-			}
-			delete(required, SequenceID)
-			v = 0
-		case RandomID:
-			v = 0
-		case DateTime:
-			switch segment.Index {
-			case int(TimestampNanoseconds),
-				int(TimestampMicroseconds),
-				int(TimestampMilliseconds),
-				int(TimestampSeconds):
-				delete(required, DateTime)
-			}
-			v = 0
-		case Provider:
-			p := opt.dataSource
-			if p == nil {
-				return nil, invalidOption("Segments", errorDataSource)
-			}
-		default:
-			return nil, invalidOption("Segments", errorInvalidType)
+		v, e := checkSegment(&opt, index, &segment, &required)
+		if e != nil {
+			return
 		}
 		if v > mask {
-			return nil, invalidOption("Segments", errorInvalidValue)
+			err = invalidOption("Segments", errorInvalidValue)
+			return
+		}
+		if segment.Source == SequenceID && w > sequenceWidth {
+			sequenceWidth = w
 		}
 	}
 	if len(required) > 0 {
-		return nil, invalidOption("Segments", errorSegmentMiss)
+		err = invalidOption("Segments", errorSegmentMiss)
+		return
 	}
 	if sequenceWidth < 8 {
-		return nil, invalidOption("Sequence.Width", errorTooSlow)
+		err = invalidOption("Sequence.Width", errorTooSlow)
+		return
 	}
 	m = &Builder{
 		options:      &opt,

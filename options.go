@@ -9,8 +9,10 @@ import (
 )
 
 const (
-	// Min indicates the minimum days approaching the end that the system limits
-	Min int64 = 7 * msPerDay
+	// SegmentLimit is the maximum number of segments
+	SegmentsLimit = 63
+	// EpochReservedDays indicates the minimum days approaching the end
+	EpochReservedDays = 7
 	// EpochMS is the default start timestamp,
 	// measured in milliseconds starting
 	// at midnight on December 12, 2022
@@ -21,19 +23,23 @@ const (
 
 // internal error string
 const (
-	errorSegmentTooFew   = "bits segments too few"
-	errorSegmentMiss     = "a required bits segments(Timestamp or Sequence)is missing"
-	errorEpochTooSmall   = "the EpochMS must be later than 1970-1-1T00:00:00"
-	errorEpochTooLarge   = "the EpochMS must be earlier than now"
-	errorIndexOut        = "the index of bits segment out of range"
-	errorIndexDuplicated = "the index of bits segment is duplicated"
-	errorWidthInvalid    = "the width of bits segment is incorrect"
-	errorWidthTooLarge   = "the width of bits segment is too large"
-	errorInvalidValue    = "invalid value"
-	errorDataSource      = "data source not provided"
-	errorInvalidType     = "invalid data source type"
-	errorTooPoor         = "the end date has been reached and there are not enough identifiers"
-	errorTooSlow         = "the sequence width is too small and the time to generate identifiers is too slow"
+	errorSegmentMiss     = "required bits segments(Timestamp and Sequence)is missing"
+	errorSegmentsTooMany = "bits segments too many"
+	errorSegmentsEmpty   = "bits segments is empty"
+
+	errorEpochTooSmall = "the EpochMS must be later than 1970-1-1T00:00:00"
+	errorEpochTooLarge = "the EpochMS must be earlier than now"
+
+	errorWidthInvalid  = "the width of bits segment is incorrect"
+	errorWidthTooLarge = "the width of bits segment is too large"
+
+	errorInvalidValue = "invalid value"
+
+	errorDataSource  = "data source not provided"
+	errorInvalidType = "invalid data source type"
+
+	errorTooPoor = "the end date has been reached and there are not enough identifiers"
+	errorTooSlow = "the sequence width is too small and the time to generate identifiers is too slow"
 )
 
 type OptionsError struct {

@@ -61,7 +61,7 @@ func TestOptionsError(t *testing.T) {
 		// {"EpochMS.TooSmall", Default(h, n).NewEpoch(-1), invalidOption("EpochMS", errorEpochTooSmall)},
 		{"EpochMS.TooLarge", Default(h, n).NewEpoch(now + 5*msPerMinute), invalidOption("EpochMS", errorEpochTooLarge)},
 		// {"EpochMS.TooPoor", Config(h, n).NewEpoch(now + 7*msPerDay), invalidOption("EpochMS", errorTooPoor)},
-		{"Segments.TooFew", Config(h, n), invalidOption("Segments", errorSegmentTooFew)},
+		{"Segments.Empty", Config(h, n), invalidOption("Segments", errorSegmentsEmpty)},
 		{"Segments.Missing", Config(h, n,
 			Host(6, 10),
 			Node(4, 10),
@@ -120,7 +120,7 @@ func TestOptionsNewEpoch(t *testing.T) {
 	} else {
 		e := m.ResetEpoch(now - 10*msPerDay)
 		if e != nil {
-			t.Errorf("want: sucessful, got: error(%s)", e)
+			t.Errorf("want: successful, got: error(%s)", e)
 		}
 	}
 }
@@ -132,7 +132,7 @@ func TestMake(t *testing.T) {
 		id, _ := m.Next()
 		no := en.Encode(id)
 		de, _ := en.Decode(no)
-		t.Logf("\n%3d. ID: %d, De: %d, En: %s", i+1, id.Main, de.Main, no)
+		// t.Logf("\n%3d. ID: %d, De: %d, En: %s", i+1, id.Main, de.Main, no)
 		if id.Main != de.Main {
 			t.Errorf("decode error: next(%d), decode(%d)", id.Main, de.Main)
 		}
