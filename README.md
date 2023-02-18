@@ -12,8 +12,6 @@ The goal is to provide a unique identification (or UUID) solution that is reliab
 
 > **NOTES!** ❗️Timestamp segment and sequence segment is REQUIRED!
 
-> 😅 Sorry, but I'm not a native English speaker. Please remind me if you see any spelling or grammar mistakes
-
 ## HOWTO 🛠️
 
 - source code: [github.com/StarryLab/tsid.go](https://github.com/StarryLab/tsid.go)
