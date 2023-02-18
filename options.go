@@ -174,7 +174,7 @@ type DataProvider interface {
 }
 
 type DataWrapper struct {
-	data sync.Map
+	sync.Map
 	// data map[string][]int64
 	hook []func(string, int) int64
 }
@@ -186,13 +186,12 @@ func DataWrap(hook ...func(string, int) int64) (dw *DataWrapper) {
 	return
 }
 
-func (w *DataWrapper) Write(name string, data ...int64) *DataWrapper {
-	w.data.Store(name, data)
-	return w
+func (w *DataWrapper) Write(name string, data ...int64) {
+	w.Store(name, data)
 }
 
 func (w *DataWrapper) Read(name string, index int) int64 {
-	if vs, f := w.data.Load(name); f {
+	if vs, f := w.Load(name); f {
 		if v, o := vs.([]int64); o && index < len(v) {
 			return v[index]
 		}
@@ -203,7 +202,7 @@ func (w *DataWrapper) Read(name string, index int) int64 {
 			return v
 		}
 	}
-	return -1
+	return 0
 }
 
 type Bits struct {
@@ -327,8 +326,8 @@ func Data(width byte, key string, index int, fallback int64) Bits {
 
 // Options MUST include DateTime segment AND SequenceID segment
 type Options struct {
-	// Min indicates the minimum days approaching the end
-	Min,
+	// ReservedDays indicates the minimum days approaching the end
+	ReservedDays,
 	// EpochMS is the start timestamp
 	EpochMS int64
 	// Signed is used to on/off the sign bit
