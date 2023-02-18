@@ -204,7 +204,7 @@ func (b *Builder) val(segment *Bits, tr time.Time, now int64, seq int64, argv []
 	case OS:
 		if len(key) > 0 {
 			if y, z := os.LookupEnv(key); z {
-				if w, r := strconv.ParseInt(y, 10, 64); r != nil {
+				if w, r := strconv.ParseInt(y, 10, 64); r == nil {
 					f = w
 				}
 			}
