@@ -1,19 +1,25 @@
 package tsid
 
 import (
+	"os"
 	"testing"
 	"time"
 )
 
+var ENV_TEST = "ENV_TEST"
+
 func TestExts(t *testing.T) {
-	opt := *ExtsOptions(1000, 120)
+	os.Setenv(ENV_TEST, "1")
+	defer os.Unsetenv(ENV_TEST)
+	opt := ExtsOptions(10, 120)
 	m, e := Make(opt)
 	if e != nil {
 		t.Fatal(e)
 		return
 	}
-	for i := 0; i < 1; i++ {
-		id, _ := m.Next()
+	m.ResetEpoch(0)
+	for i := 0; i < 10; i++ {
+		id, _ := m.Next(1, 2, 3, 4, 5, 6, 7, 8, 9)
 		if id == nil {
 			t.Fatal("builder config invalid")
 			return
@@ -21,31 +27,86 @@ func TestExts(t *testing.T) {
 	}
 }
 
+func TestDateTime(t *testing.T) {
+	tt := []DateTimeType{
+		TimeDay,
+		TimeHour,
+		TimeMillisecond,
+		TimeMinute,
+		TimeMonth,
+		TimeSecond,
+		TimeWeekNumber,
+		TimeWeekday,
+		TimeYear,
+		TimeYearDay,
+		99,
+	}
+	ts := []DateTimeType{
+		TimestampMicroseconds,
+		TimestampMilliseconds,
+		TimestampNanoseconds,
+		TimestampSeconds,
+	}
+	for _, a := range tt {
+		for _, b := range ts {
+			opt := Options{
+				segments: []Bits{
+					Timestamp(31, b), // 31
+					Sequence(12),     // 12
+					Random(16),       // 16
+					Timestamp(30, a), // 30
+				},
+			}
+			if m, e := Make(opt); e == nil {
+				m.Next()
+			} else {
+				t.Fatal(e)
+				continue
+			}
+		}
+	}
+}
+
 func BenchmarkExts(b *testing.B) {
-	opt := *ExtsOptions(100, 9)
+	os.Setenv(ENV_TEST, "1")
+	defer os.Unsetenv(ENV_TEST)
+	opt := ExtsOptions(10, 9)
 	m, e := Make(opt)
 	if e != nil {
 		b.Fatal(e)
 		return
 	}
 	for i := 0; i < b.N; i++ {
-		m.Next()
+		m.Next(1, 2, 3, 4, 5, 6, 7, 8, 9)
 	}
 }
-func ExtsOptions(host, node int64) *Options {
-	return &Options{
+func ExtsOptions(host, node int64) Options {
+	p := DataWrap(
+		func(name string, index int) int64 {
+			if name == "DATA_SOURCE_HOOK" && index == 9 {
+				return 1
+			}
+			return 0
+		})
+	p.Write("DATA_SOURCE_HIT", 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+	return Options{
 		settings: map[string]int64{
 			"Host": host,
 			"Node": node,
 		},
+		dataSource: p,
 		segments: []Bits{
-			Host(20, host),                  // 20
-			Timestamp(31, TimestampSeconds), // 31
-			Random(31),                      // 31
-			Fixed(15, 9),                    // 15
-			Node(7, node),                   // 7
-			Sequence(12),                    // 12
-			Timestamp(10, TimeMillisecond),  // 10
+			Host(16, host),                    // 16
+			Timestamp(31, TimestampSeconds),   // 31
+			Random(15),                        // 15
+			Env(10, ENV_TEST, 0),              // 10
+			Fixed(5, 9),                       // 5
+			Node(8, node),                     // 8
+			Sequence(12),                      // 12
+			Timestamp(10, TimeMillisecond),    // 10
+			Arg(8, 0, 0),                      // 8
+			Data(4, "DATA_SOURCE_HIT", 3, 0),  // 4
+			Data(4, "DATA_SOURCE_HOOK", 9, 0), // 4
 		},
 	}
 }
@@ -128,7 +189,7 @@ func TestOptionsNewEpoch(t *testing.T) {
 func TestMake(t *testing.T) {
 	en := Base64{Aligned: true}
 	m, _ := Snowflake(10, 8)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 2000; i++ {
 		id, _ := m.Next()
 		no := en.Encode(id)
 		de, _ := en.Decode(no)
@@ -136,5 +197,6 @@ func TestMake(t *testing.T) {
 		if id.Main != de.Main {
 			t.Errorf("decode error: next(%d), decode(%d)", id.Main, de.Main)
 		}
+		m.NextString()
 	}
 }
