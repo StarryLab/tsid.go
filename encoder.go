@@ -44,57 +44,50 @@ func decodeError(num, reason string) *DecodeError {
 
 func (e *Base64) Encode(id *ID) string {
 	s := [2]struct {
+		val int64  // value
 		buf []byte // string buffers
 		len int    // string length
 		pad int    // padding count
 	}{}
+	s[0].val = id.Ext
+	s[1].val = id.Main
 	// g is the capacity of the builder's underlying byte slice.
 	g := 0
-	if id.Ext > 0 {
-		s[0].buf = formatBits(id.Ext)
-		s[0].len = len(s[0].buf)
-		if e.Aligned && base64Widths > s[0].len {
-			s[0].pad = base64Widths - s[0].len
+	for i, p := range s {
+		if p.val <= 0 {
+			// ignore negative value or zero
+			continue
 		}
-		g += s[0].len + s[0].pad
-	}
-	if id.Main != 0 {
-		s[1].buf = formatBits(id.Main)
-		s[1].len = len(s[1].buf)
-		if (id.Ext > 0 || e.Aligned) && base64Widths > s[1].len {
-			s[1].pad = base64Widths - s[1].len
+		s[i].buf = formatBits(p.val)
+		s[i].len = len(s[i].buf)
+		if e.Aligned && base64Widths > s[i].len {
+			s[i].pad = base64Widths - s[i].len
 		}
-		g += s[1].len + s[1].pad
-	} else if id.Ext > 0 || e.Aligned {
-		// zero with padding
-		s[1].pad = base64Widths
-		g += base64Widths
-	} else {
-		// zero without padding
-		s[1].buf = []byte{base64Digits[0]}
-		s[1].len = 1
-		g += 1
+		g += s[i].len + s[i].pad
 	}
-	if id.Signed && (id.Main > 0 || id.Ext > 0) {
+	if id.Ext > 0 && base64Widths > s[1].len {
+		s[1].pad = base64Widths - s[1].len
+		g += s[1].pad
+	}
+	if g == 0 {
+		return base64Digits[:1]
+	}
+	if id.Signed {
 		g += 1
 	}
 	// build string
 	b := strings.Builder{}
 	b.Grow(g)
-	if id.Signed && (id.Main > 0 || id.Ext > 0) {
+	if id.Signed {
 		b.WriteByte(base64Signed)
 	}
-	if s[0].pad > 0 {
-		b.Write([]byte(base64Paddings)[:s[0].pad])
-	}
-	if s[0].len > 0 {
-		b.Write(s[0].buf)
-	}
-	if s[1].pad > 0 {
-		b.Write([]byte(base64Paddings)[:s[1].pad])
-	}
-	if s[1].len > 0 {
-		b.Write(s[1].buf)
+	for i := 0; i < 2; i++ {
+		if s[i].pad > 0 {
+			b.Write([]byte(base64Paddings)[:s[i].pad])
+		}
+		if s[i].len > 0 {
+			b.Write(s[i].buf)
+		}
 	}
 	return b.String()
 }
