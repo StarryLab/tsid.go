@@ -12,6 +12,8 @@ The goal is to provide a unique identification (or UUID) solution that is reliab
 
 > **NOTES!** ❗️Timestamp segment and sequence segment is REQUIRED!
 
+> 😅 I'm sorry, but I'm not a native English speaker. Please remind me if you see any spelling or grammar mistakes
+
 ## HOWTO 🛠️
 
 - [github.com/StarryLab/tsid.go](https://github.com/StarryLab/tsid.go)
@@ -110,10 +112,10 @@ import (
 func main() {
   // Environment variable: SERVER_HOST, SERVER_NODE
   opt := O(
-    Sequence(SequenceWidth), // 12 bits, REQUIRED!
-    Env(6, "SERVER_HOST", 0) // data center id, 6 bits [0, 31]
-    Env(4, "SERVER_NODE", 0) // server node id, 4 bits [0, 15]
-    Timestamp(TimestampWidth, TimestampMilliseconds), // 41 bits, REQUIRED!
+    Sequence(12),                         // 12 bits, REQUIRED!
+    Env(6, "SERVER_HOST", 0)              // 6 bits [0, 31], data center id
+    Env(4, "SERVER_NODE", 0)              // 4 bits [0, 15], server node id
+    Timestamp(41, TimestampMilliseconds), // 41 bits, REQUIRED!
   )
   b, e := Make(opt)
   if e != nil {
