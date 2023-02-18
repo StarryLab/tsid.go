@@ -8,7 +8,7 @@ English | [中文](./README.zh.md)
 
 A unique ID generator based on a timestamp or time series, inspired by Twitter's Snowflake.
 
-> **Woohoo!** ❗️ Timestamp segment and sequence segment is REQUIRED!
+> **NOTES!** ❗️Timestamp segment and sequence segment is REQUIRED!
 
 ## HOWTO 🛠️
 
