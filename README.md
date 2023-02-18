@@ -42,6 +42,8 @@ go get github.com/StarryLab/tsid.go
     - Simple sequence/serial number, like a counter
     - Data sources
     - Parameter by caller
+    - Csounter
+    - Sequence number, like a counter
 
 ## USAGE 🚀
 
