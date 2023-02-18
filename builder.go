@@ -320,8 +320,8 @@ func (b *Builder) ResetEpoch(epoch int64) error {
 		return invalidOption("EpochMS", errorEpochTooLarge)
 	}
 	min := int64(EpochReservedDays * msPerDay)
-	if b.options.Min > min {
-		min = b.options.Min
+	if b.options.ReservedDays > min {
+		min = b.options.ReservedDays * msPerDay
 	}
 	if now-epoch < min {
 		return invalidOption("EpochMS", errorTooPoor)
@@ -340,14 +340,14 @@ var checklist = []struct {
 	segment string
 	reason  string
 }{
-	{func(opt *Options) bool { return opt.Min <= 0 && EpochMS < 0 }, "EpochMS", errorEpochTooSmall},
+	{func(opt *Options) bool { return opt.ReservedDays <= 0 && EpochMS < 0 }, "EpochMS", errorEpochTooSmall},
 	{func(opt *Options) bool { return opt.EpochMS > time.Now().UnixNano()/nsPerMilliseconds }, "EpochMS", errorEpochTooLarge},
 	{func(opt *Options) bool { return len(opt.segments) <= 0 }, "Segments", errorSegmentsEmpty},
 	{func(opt *Options) bool { return len(opt.segments) > SegmentsLimit }, "Segments", errorSegmentsTooMany},
 	{func(opt *Options) bool {
 		min := int64(EpochReservedDays * msPerDay)
-		if opt.Min > min {
-			min = opt.Min
+		if opt.ReservedDays > min {
+			min = opt.ReservedDays
 		}
 		return time.Now().UnixNano()/nsPerMilliseconds-opt.EpochMS < min
 	}, "EpochMS", errorTooPoor},
@@ -419,7 +419,7 @@ func Make(opt Options) (m *Builder, err error) {
 		opt.segments[index].mask = mask
 		v, e := checkSegment(&opt, index, &segment, &required)
 		if e != nil {
-			return
+			return nil, e
 		}
 		if v > mask {
 			err = invalidOption("Segments", errorInvalidValue)
