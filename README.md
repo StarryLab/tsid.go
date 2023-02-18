@@ -12,12 +12,12 @@ The goal is to provide a unique identification (or UUID) solution that is reliab
 
 > **NOTES!** ❗️Timestamp segment and sequence segment is REQUIRED!
 
-> 😅 I'm sorry, but I'm not a native English speaker. Please remind me if you see any spelling or grammar mistakes
+> 😅 Sorry, but I'm not a native English speaker. Please remind me if you see any spelling or grammar mistakes
 
 ## HOWTO 🛠️
 
-- [github.com/StarryLab/tsid.go](https://github.com/StarryLab/tsid.go)
-- documentation [pkg.go.dev](https://pkg.go.dev/github.com/StarryLab/tsid.go@v1.0.0-alpha)
+- source code: [github.com/StarryLab/tsid.go](https://github.com/StarryLab/tsid.go)
+- documentation: [pkg.go.dev](https://pkg.go.dev/github.com/StarryLab/tsid.go)
 
 ```bash
 go get github.com/StarryLab/tsid.go
@@ -27,7 +27,7 @@ go get github.com/StarryLab/tsid.go
 
 1. The maximum 126 bits
 2. Customize the width of each bits segment
-3. Customize the sequence of bits segments
+3. Customize the order of bits segments
 4. Support customize encoder
 5. BASE36 is default, using the go package `strconv.FormatInt`
 6. An improved BASE64 encoder to encode/decode identifiers
