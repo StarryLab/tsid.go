@@ -1,12 +1,38 @@
 package tsid
 
 import (
+	"errors"
 	"os"
 	"testing"
 	"time"
 )
 
 var ENV_TEST = "ENV_TEST"
+
+type testDataSource struct {
+	data map[string]int64
+}
+
+func (d *testDataSource) Read(query ...interface{}) (int64, error) {
+	if len(query) > 0 {
+		if s, o := query[0].(string); o {
+			if v, o := d.data[s]; o {
+				return v, nil
+			}
+		}
+	}
+	return 0, errors.New("data not found")
+}
+
+func init() {
+	dp := &testDataSource{
+		data: map[string]int64{
+			"demo":  1,
+			"other": 9,
+		},
+	}
+	Register("my_data_source", dp)
+}
 
 func TestExts(t *testing.T) {
 	os.Setenv(ENV_TEST, "1")
@@ -81,20 +107,11 @@ func BenchmarkExts(b *testing.B) {
 	}
 }
 func ExtsOptions(host, node int64) Options {
-	p := DataWrap(
-		func(name string, index int) int64 {
-			if name == "DATA_SOURCE_HOOK" && index == 9 {
-				return 1
-			}
-			return 0
-		})
-	p.Write("DATA_SOURCE_HIT", 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
 	return Options{
 		settings: map[string]int64{
 			"Host": host,
 			"Node": node,
 		},
-		dataSource: p,
 		segments: []Bits{
 			Host(16, host),                    // 16
 			Timestamp(31, TimestampSeconds),   // 31

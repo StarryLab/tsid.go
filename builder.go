@@ -5,6 +5,7 @@ package tsid
 
 import (
 	cr "crypto/rand"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -45,10 +46,10 @@ func (id *ID) String() string {
 	if id.Ext > 0 {
 		// 13 characters
 		s.WriteString(strconv.FormatInt(id.Ext, 36))
-	}
+		}
 	if id.Main > 0 {
-		m := strconv.FormatInt(id.Main, 36)
-		// 13 characters
+	m := strconv.FormatInt(id.Main, 36)
+	// 13 characters
 		s.WriteString(fmt.Sprintf("%013s", m))
 	}
 	return s.String()
@@ -194,6 +195,13 @@ func (b *Builder) time(t DateTimeType, tr time.Time, now int64) (f int64) {
 	return f
 }
 
+func (b *Builder) data(name string, query *[]interface{}) (int64, error) {
+	if h, o := dataSources[name]; o {
+		return h.Read(*query...)
+	}
+	return 0, errors.New("data not found")
+}
+
 func (b *Builder) val(segment *Bits, tr time.Time, now int64, seq int64, argv []int64, a int, f int64) int64 {
 	key := segment.Key
 	switch segment.Source {
@@ -222,9 +230,8 @@ func (b *Builder) val(segment *Bits, tr time.Time, now int64, seq int64, argv []
 	case RandomID:
 		f = Rand(segment.Width)
 	case Provider:
-		p := b.options.dataSource
-		if p != nil {
-			f = p.Read(segment.Key, segment.Index)
+		if v, o := b.data(segment.Key, &segment.query); o == nil {
+			f = v
 		}
 	}
 	return f
@@ -353,7 +360,7 @@ var checklist = []struct {
 	}, "EpochMS", errorTooPoor},
 }
 
-func checkSegment(opt *Options, index int, segment *Bits, required *map[DataSource]int) (v int64, err error) {
+func checkSegment(opt *Options, index int, segment *Bits, required *map[DataSourceType]int) (v int64, err error) {
 	v = segment.Value
 	switch segment.Source {
 	case Static:
@@ -375,11 +382,6 @@ func checkSegment(opt *Options, index int, segment *Bits, required *map[DataSour
 		}
 		v = 0
 	case Provider:
-		p := opt.dataSource
-		if p == nil {
-			err = invalidOption("Segments", errorDataSource)
-			return
-		}
 	default:
 		err = invalidOption("Segments", errorInvalidType)
 		return
@@ -398,7 +400,7 @@ func Make(opt Options) (m *Builder, err error) {
 		opt.EpochMS = EpochMS
 	}
 	// Options MUST include DateTime segment AND SequenceID segment.
-	required := map[DataSource]int{
+	required := map[DataSourceType]int{
 		DateTime:   7,
 		SequenceID: 0,
 	}
@@ -443,4 +445,11 @@ func Make(opt Options) (m *Builder, err error) {
 		ready:        true,
 	}
 	return
+}
+
+var dataSources = map[string]DataProvider{}
+
+// Register to register a data provider
+func Register(name string, d DataProvider) {
+	dataSources[name] = d
 }

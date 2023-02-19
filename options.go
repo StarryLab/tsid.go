@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 const (
@@ -137,11 +136,11 @@ const (
 	SequenceWidth = 12
 )
 
-type DataSource int
+type DataSourceType int
 
 const (
 	// Static indicates that the value is from default
-	Static DataSource = iota
+	Static DataSourceType = iota
 	// Args indicates that the value is from arguments of caller
 	Args
 	// OS indicates that the value is from OS environment
@@ -158,56 +157,24 @@ const (
 	Provider
 )
 
-var dataSourceNames = []string{
+var dataSourceTypeNames = []string{
 	"Static", "Args", "OS", "Settings", "SequenceID", "DateTime", "RandomID", "Provider",
 }
 
-func (d DataSource) String() string {
-	if int(d) < len(dataSourceNames) {
-		return dataSourceNames[int(d)]
+func (d DataSourceType) String() string {
+	if int(d) < len(dataSourceTypeNames) {
+		return dataSourceTypeNames[int(d)]
 	}
 	return "Undefined"
 }
 
 type DataProvider interface {
-	Read(name string, index int) int64
-}
-
-type DataWrapper struct {
-	sync.Map
-	// data map[string][]int64
-	hook []func(string, int) int64
-}
-
-func DataWrap(hook ...func(string, int) int64) (dw *DataWrapper) {
-	dw = &DataWrapper{
-		hook: hook,
-	}
-	return
-}
-
-func (w *DataWrapper) Write(name string, data ...int64) {
-	w.Store(name, data)
-}
-
-func (w *DataWrapper) Read(name string, index int) int64 {
-	if vs, f := w.Load(name); f {
-		if v, o := vs.([]int64); o && index < len(v) {
-			return v[index]
-		}
-	}
-	for _, h := range w.hook {
-		v := h(name, index)
-		if v >= 0 {
-			return v
-		}
-	}
-	return 0
+	Read(query ...interface{}) (int64, error)
 }
 
 type Bits struct {
 	// Source indicates that bit-segment data source
-	Source DataSource
+	Source DataSourceType
 	Width  byte
 	Value  int64
 	// Key indicates the data source key
@@ -215,7 +182,8 @@ type Bits struct {
 	// Index indicates the data source index
 	Index int
 
-	mask int64
+	mask  int64
+	query []interface{}
 }
 
 // Host to make the bit-segment of data center id, which value from settings
@@ -313,13 +281,14 @@ func Option(width byte, key string, fallback int64) Bits {
 }
 
 // Data to make a bit-segment, which value from data provider
-func Data(width byte, key string, index int, fallback int64) Bits {
+func Data(width byte, source string, fallback int64, query ...interface{}) Bits {
 	return Bits{
 		Source: Provider,
 		Width:  width,
-		Key:    key,
-		Index:  index,
+		Key:    source,
+		Index:  0,
 		Value:  fallback,
+		query:  query,
 		// -1 ^ (-1 << (w % 64)),
 	}
 }
@@ -333,20 +302,13 @@ type Options struct {
 	// Signed is used to on/off the sign bit
 	Signed bool
 
-	segments   []Bits
-	settings   map[string]int64
-	dataSource DataProvider
+	segments []Bits
+	settings map[string]int64
 }
 
 // Set to set the settings
 func (o *Options) Set(k string, v int64) *Options {
 	o.settings[k] = v
-	return o
-}
-
-// Bind to bind the data provider
-func (o *Options) Bind(p DataProvider) *Options {
-	o.dataSource = p
 	return o
 }
 

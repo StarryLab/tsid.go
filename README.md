@@ -24,8 +24,8 @@ go get github.com/StarryLab/tsid.go
 ## FEATURES ✨
 
 1. The maximum 126 bits
-2. Customize the width of each bits segment
-3. Customize the order of bits segments
+2. Customize the width of each bit-segment
+3. Customize the order of bit-segments
 4. Support customize encoder
 5. BASE36 is default, using the go package `strconv.FormatInt`
 6. An improved BASE64 encoder to encode/decode identifiers
@@ -99,12 +99,43 @@ func main() {
 ### Example 3
 
 ```go
+// example.go
+package example
+
+import (
+  "github.com/StarryLab/tsid.go"
+)
+
+func init() {
+  tsid.Register("my_data_source", &DemoDataSource{map[string]int64{
+    "demo": 1,
+    "other": 9,
+  }})
+}
+
+type DemoDataSource struct{
+  data map[string]int64
+}
+
+func(d *DemoDataSource)Read(query ...interface{}) (int64, error) {
+  if len(query)>0 {
+    if s, o := query[0].(string); o {
+      if v, o := d.data[s]; o {
+        return v, nil
+      }
+    }
+  }
+  return 0, errors.New("data not found")
+}
+
+// main.go
 package main
 
 import (
   "fmt"
 
   . "github.com/StarryLab/tsid.go"
+  "example"
 )
 
 func main() {
@@ -113,6 +144,8 @@ func main() {
     Sequence(12),                         // 12 bits, REQUIRED!
     Env(6, "SERVER_HOST", 0)              // 6 bits [0, 31], data center id
     Env(4, "SERVER_NODE", 0)              // 4 bits [0, 15], server node id
+    Data(10, "my_data_source", 2, "demo") // 10 bits [0, 1024], data source
+    Random(30),                           // 30 bits
     Timestamp(41, TimestampMilliseconds), // 41 bits, REQUIRED!
   )
   b, e := Make(opt)
