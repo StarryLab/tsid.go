@@ -134,7 +134,7 @@ func TestOptionsError(t *testing.T) {
 	tests := []struct {
 		name string
 		opt  *Options
-		err  error
+		err  *OptionsError
 	}{
 		// {"EpochMS.TooSmall", Default(h, n).NewEpoch(-1), invalidOption("EpochMS", errorEpochTooSmall)},
 		{"EpochMS.TooLarge", Default(h, n).NewEpoch(now + 5*msPerMinute), invalidOption("EpochMS", errorEpochTooLarge)},
@@ -172,7 +172,7 @@ func TestOptionsError(t *testing.T) {
 		t.Run(o.name, func(t *testing.T) {
 			if _, e := Make(*o.opt); e == nil {
 				t.Errorf("want: error(%s), no error occurs", o.err)
-			} else if e.Error() != o.err.Error() {
+			} else if !o.err.SameAs(e) {
 				t.Errorf("want: error(%s), got: error(%s)", o.err, e)
 			}
 		})

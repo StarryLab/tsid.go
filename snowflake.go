@@ -14,7 +14,7 @@ func Snowflake(host, node int64) (*Builder, error) {
 	return Make(opt)
 }
 
-// Simple implements a simple snowflake algorithm.
+// Simple implements a classic snowflake algorithm(fixed width and position).
 // The value range of server is [0, 1023].
 //   if b, e := Simple(16); e == nil {
 //     fmt.Println("ID:")

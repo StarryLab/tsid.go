@@ -326,6 +326,11 @@ func (o *Options) Add(b Bits) *Options {
 
 // O is a shortcut for make Options
 func O(segments ...Bits) (o *Options) {
+	return Segments(segments...)
+}
+
+// Segments is a shortcut for make Options
+func Segments(segments ...Bits) (o *Options) {
 	o = &Options{
 		segments: segments,
 	}
