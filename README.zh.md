@@ -43,7 +43,7 @@ go get github.com/StarryLab/tsid.go
 
 ## 用法 🚀
 
-### 例 1 ：基本用法
+### 例 1: 基本用法
 
 ```go
 package main
@@ -97,11 +97,12 @@ func main() {
 
 ```
 
-### 例 3 ：自定义位段宽度及顺序
+### 例 3: 自定义位段宽度及顺序
+
+1. `examples/demo.go`
 
 ```go
-// example.go
-package example
+package examples
 
 import (
   "github.com/StarryLab/tsid.go"
@@ -129,13 +130,17 @@ func(d *DemoDataSource)Read(query ...interface{}) (int64, error) {
   return 0, errors.New("data not found")
 }
 
-// main.go
+```
+
+2. `main.go`
+
+```go
 package main
 
 import (
   "fmt"
 
-  _ "example"
+  _ "examples"
   . "github.com/StarryLab/tsid.go"
 )
 
