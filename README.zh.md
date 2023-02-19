@@ -100,21 +100,54 @@ func main() {
 ### 例 3 ：自定义位段宽度及顺序
 
 ```go
+// example.go
+package example
+
+import (
+  "github.com/StarryLab/tsid.go"
+)
+
+func init() {
+  tsid.Register("my_data_source", DemoDataSource{map[string]int64{
+    "demo": 1,
+    "other": 9,
+  }})
+}
+
+type DemoDataSource struct{
+  data map[string]int64
+}
+
+func(d *DemoDataSource)Read(query ...interface{}) (int64, error) {
+  if len(query)>0 {
+    if s, o := query[0].(string); o {
+      if v, o := d.data[s]; o {
+        return v, nil
+      }
+    }
+  }
+  return 0, errors.New("data not found")
+}
+
+// main.go
 package main
 
 import (
   "fmt"
 
+  _ "example"
   . "github.com/StarryLab/tsid.go"
 )
 
 func main() {
   // 环境变量 SERVER_HOST 和 SERVER_NODE 指定数据中心和服务器节点号
   opt := O(
-    Sequence(SequenceWidth), // 12 bits, REQUIRED!
-    Env(6, "SERVER_HOST", 0) // data center id, 6 bits [0, 31]
-    Env(4, "SERVER_NODE", 0) // data center id, 4 bits [0, 15]
-    Timestamp(TimestampWidth, TimestampMilliseconds), // 41 bits, REQUIRED!
+    Sequence(12),                         // 12 bits, REQUIRED!
+    Env(6, "SERVER_HOST", 0)              // 6 bits [0, 31] 数据中心编号
+    Env(4, "SERVER_NODE", 0)              // 4 bits [0, 15] 服务器节点编号
+    Data(10, "my_data_source", 2, "demo") // 10 bits [0, 1023]
+    Random(30),                           // 30 bits
+    Timestamp(41, TimestampMilliseconds), // 41 bits, REQUIRED!
   )
   b, e := Make(opt)
   if e != nil {

@@ -134,8 +134,8 @@ package main
 import (
   "fmt"
 
+  _ "example"
   . "github.com/StarryLab/tsid.go"
-  "example"
 )
 
 func main() {
@@ -144,7 +144,7 @@ func main() {
     Sequence(12),                         // 12 bits, REQUIRED!
     Env(6, "SERVER_HOST", 0)              // 6 bits [0, 31], data center id
     Env(4, "SERVER_NODE", 0)              // 4 bits [0, 15], server node id
-    Data(10, "my_data_source", 2, "demo") // 10 bits [0, 1024], data source
+    Data(10, "my_data_source", 2, "demo") // 10 bits [0, 1023], data source
     Random(30),                           // 30 bits
     Timestamp(41, TimestampMilliseconds), // 41 bits, REQUIRED!
   )
