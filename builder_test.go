@@ -27,7 +27,7 @@ func (d *testDataSource) Read(query ...interface{}) (int64, error) {
 func init() {
 	dp := &testDataSource{
 		data: map[string]int64{
-			"demo":  1,
+			"hit":   1,
 			"other": 9,
 		},
 	}
@@ -113,17 +113,17 @@ func ExtsOptions(host, node int64) Options {
 			"Node": node,
 		},
 		segments: []Bits{
-			Host(16, host),                    // 16
-			Timestamp(31, TimestampSeconds),   // 31
-			Random(15),                        // 15
-			Env(10, ENV_TEST, 0),              // 10
-			Fixed(5, 9),                       // 5
-			Node(8, node),                     // 8
-			Sequence(12),                      // 12
-			Timestamp(10, TimeMillisecond),    // 10
-			Arg(8, 0, 0),                      // 8
-			Data(4, "DATA_SOURCE_HIT", 3, 0),  // 4
-			Data(4, "DATA_SOURCE_HOOK", 9, 0), // 4
+			Host(16, host),                            // 16
+			Timestamp(31, TimestampSeconds),           // 31
+			Random(15),                                // 15
+			Env(10, ENV_TEST, 0),                      // 10
+			Fixed(5, 9),                               // 5
+			Node(8, node),                             // 8
+			Sequence(12),                              // 12
+			Timestamp(10, TimeMillisecond),            // 10
+			Arg(8, 0, 0),                              // 8
+			Data(4, "my_data_source", 3, "hit"),       // 4
+			Data(4, "my_data_source", 9, "not_found"), // 4
 		},
 	}
 }
