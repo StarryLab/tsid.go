@@ -17,21 +17,21 @@ const (
 	// measured in milliseconds starting
 	// at midnight on December 12, 2022
 	EpochMS = 1_670_774_400_000
-	// The maximum width of the bits segment
+	// The maximum width of the bit-segment
 	bitsMaxWidth = 63
 )
 
 // internal error string
 const (
-	errorSegmentMiss     = "required bits segments(Timestamp and Sequence)is missing"
-	errorSegmentsTooMany = "bits segments too many"
-	errorSegmentsEmpty   = "bits segments is empty"
+	errorSegmentMiss     = "required bit-segments(Timestamp and Sequence)is missing"
+	errorSegmentsTooMany = "bit-segments too many"
+	errorSegmentsEmpty   = "bit-segments is empty"
 
 	errorEpochTooSmall = "the EpochMS must be later than 1970-1-1T00:00:00"
 	errorEpochTooLarge = "the EpochMS must be earlier than now"
 
-	errorWidthInvalid  = "the width of bits segment is incorrect"
-	errorWidthTooLarge = "the width of bits segment is too large"
+	errorWidthInvalid  = "the width of bit-segment is incorrect"
+	errorWidthTooLarge = "the width of bit-segment is too large"
 
 	errorInvalidValue = "invalid value"
 
@@ -122,17 +122,17 @@ func (d DateTimeType) String() string {
 }
 
 const (
-	// HostWidth is the default width of the bits segment,
+	// HostWidth is the default width of the bit-segment,
 	// value range [0, 63]
 	HostWidth = 6
-	// NodeWidth is the default width of the bits segment,
+	// NodeWidth is the default width of the bit-segment,
 	// value range [0, 15]
 	NodeWidth = 4
-	// TimestampWidth is the default width of the bits segment.
+	// TimestampWidth is the default width of the bit-segment.
 	// It measures time by the number of seconds that have
 	// elapsed since EpochMS, value range [0, 68 years after]
 	TimestampWidth = 41
-	// SequenceWidth is the default width of the bits segment,
+	// SequenceWidth is the default width of the bit-segment,
 	// value range [0, 4095]
 	SequenceWidth = 12
 )
@@ -206,7 +206,7 @@ func (w *DataWrapper) Read(name string, index int) int64 {
 }
 
 type Bits struct {
-	// Source indicates that bits segment data source
+	// Source indicates that bit-segment data source
 	Source DataSource
 	Width  byte
 	Value  int64
@@ -218,7 +218,7 @@ type Bits struct {
 	mask int64
 }
 
-// Host to make the bits segment of data center id, which value from settings
+// Host to make the bit-segment of data center id, which value from settings
 func Host(width byte, fallback int64) Bits {
 	return Bits{
 		Source: Settings,
@@ -229,7 +229,7 @@ func Host(width byte, fallback int64) Bits {
 	}
 }
 
-// Node to make the bits segments of server node, which value from settings
+// Node to make the bit-segments of server node, which value from settings
 func Node(width byte, fallback int64) Bits {
 	return Bits{
 		Source: Settings,
@@ -240,7 +240,7 @@ func Node(width byte, fallback int64) Bits {
 	}
 }
 
-// Timestamp to make a bits segment, which value from system unix timestamp
+// Timestamp to make a bit-segment, which value from system unix timestamp
 func Timestamp(width byte, t DateTimeType) Bits {
 	return Bits{
 		Source: DateTime,
@@ -250,7 +250,7 @@ func Timestamp(width byte, t DateTimeType) Bits {
 	}
 }
 
-// Random to make a bits segment, which value from random number
+// Random to make a bit-segment, which value from random number
 func Random(width byte) Bits {
 	return Bits{
 		Source: RandomID,
@@ -260,7 +260,7 @@ func Random(width byte) Bits {
 	}
 }
 
-// Sequence to make a bits segment, which value from runtime sequence
+// Sequence to make a bit-segment, which value from runtime sequence
 func Sequence(width byte) Bits {
 	return Bits{
 		Source: SequenceID,
@@ -269,7 +269,7 @@ func Sequence(width byte) Bits {
 	}
 }
 
-// Fixed to make a bits segment, which value is fixed
+// Fixed to make a bit-segment, which value is fixed
 func Fixed(width byte, value int64) Bits {
 	return Bits{
 		Source: Static,
@@ -279,7 +279,7 @@ func Fixed(width byte, value int64) Bits {
 	}
 }
 
-// Env to make a bits segment, which value from OS environment variable
+// Env to make a bit-segment, which value from OS environment variable
 func Env(width byte, name string, fallback int64) Bits {
 	return Bits{
 		Source: OS,
@@ -290,7 +290,7 @@ func Env(width byte, name string, fallback int64) Bits {
 	}
 }
 
-// Arg to make a bits segment, which value from caller arguments
+// Arg to make a bit-segment, which value from caller arguments
 func Arg(width byte, index int, fallback int64) Bits {
 	return Bits{
 		Source: Args,
@@ -301,7 +301,7 @@ func Arg(width byte, index int, fallback int64) Bits {
 	}
 }
 
-// Option to make a bits segment, which value from settings in options
+// Option to make a bit-segment, which value from settings in options
 func Option(width byte, key string, fallback int64) Bits {
 	return Bits{
 		Source: Settings,
@@ -312,7 +312,7 @@ func Option(width byte, key string, fallback int64) Bits {
 	}
 }
 
-// Data to make a bits segment, which value from data provider
+// Data to make a bit-segment, which value from data provider
 func Data(width byte, key string, index int, fallback int64) Bits {
 	return Bits{
 		Source: Provider,
@@ -356,7 +356,7 @@ func (o *Options) NewEpoch(v int64) *Options {
 	return o
 }
 
-// Add to add a bits segment
+// Add to appends a bit-segment declaration
 func (o *Options) Add(b Bits) *Options {
 	o.segments = append(o.segments, b)
 	return o
