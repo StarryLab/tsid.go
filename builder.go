@@ -6,7 +6,6 @@ package tsid
 import (
 	cr "crypto/rand"
 	"errors"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -38,20 +37,26 @@ type ID struct {
 
 func (id *ID) String() string {
 	s := strings.Builder{}
-	s.Grow(27)
-	if id.Signed {
+	s.Grow(28)
+	if id.Signed && (id.Ext > 0 || id.Main > 0) {
 		// 1 character
-		s.WriteByte('.')
+		s.WriteByte('-')
 	}
 	if id.Ext > 0 {
 		// 13 characters
-		s.WriteString(strconv.FormatInt(id.Ext, 36))
+		m := strconv.FormatInt(id.Ext, 36)
+		if len(m) < 13 {
+			s.WriteString(base64Paddings[:13-len(m)])
 		}
-	if id.Main > 0 {
+		s.WriteString(m)
+		s.WriteRune('.')
+	}
 	m := strconv.FormatInt(id.Main, 36)
 	// 13 characters
-		s.WriteString(fmt.Sprintf("%013s", m))
+	if len(m) < 13 {
+		s.WriteString(base64Paddings[:13-len(m)])
 	}
+	s.WriteString(m)
 	return s.String()
 }
 
