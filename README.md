@@ -107,7 +107,7 @@ import (
 )
 
 func init() {
-  tsid.Register("my_data_source", &DemoDataSource{map[string]int64{
+  tsid.Register("my_data_source", DemoDataSource{map[string]int64{
     "demo": 1,
     "other": 9,
   }})
