@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var ENV_TEST = "ENV_TEST"
+var envTest = "ENV_TEST"
 
 type testDataSource struct {
 	data map[string]int64
@@ -35,21 +35,27 @@ func init() {
 }
 
 func TestExts(t *testing.T) {
-	os.Setenv(ENV_TEST, "1")
-	defer os.Unsetenv(ENV_TEST)
+	_ = os.Setenv(envTest, "1")
+	defer func(key string) {
+		_ = os.Unsetenv(key)
+	}(envTest)
 	opt := ExtsOptions(10, 120)
 	m, e := Make(opt)
 	if e != nil {
 		t.Fatal(e)
 		return
 	}
-	m.ResetEpoch(0)
+	_ = m.ResetEpoch(0)
 	for i := 0; i < 10; i++ {
-		id, _ := m.Next(1, 2, 3, 4, 5, 6, 7, 8, 9)
+		id := m.Next(1, 2, 3, 4, 5, 6, 7, 8, 9)
 		if id == nil {
 			t.Fatal("builder config invalid")
 			return
 		}
+		_ = id.String()
+		_ = id.Bytes()
+		id.Signed = true
+		_ = id.String()
 	}
 }
 
@@ -87,15 +93,17 @@ func TestDateTime(t *testing.T) {
 				m.Next()
 			} else {
 				t.Fatal(e)
-				continue
+				return
 			}
 		}
 	}
 }
 
 func BenchmarkExts(b *testing.B) {
-	os.Setenv(ENV_TEST, "1")
-	defer os.Unsetenv(ENV_TEST)
+	_ = os.Setenv(envTest, "1")
+	defer func(key string) {
+		_ = os.Unsetenv(key)
+	}(envTest)
 	opt := ExtsOptions(10, 9)
 	m, e := Make(opt)
 	if e != nil {
@@ -116,7 +124,7 @@ func ExtsOptions(host, node int64) Options {
 			Host(16, host),                            // 16
 			Timestamp(31, TimestampSeconds),           // 31
 			Random(15),                                // 15
-			Env(10, ENV_TEST, 0),                      // 10
+			Env(10, envTest, 0),                       // 10
 			Fixed(5, 9),                               // 5
 			Node(8, node),                             // 8
 			Sequence(12),                              // 12
@@ -207,7 +215,7 @@ func TestMake(t *testing.T) {
 	en := Base64{Aligned: true}
 	m, _ := Snowflake(10, 8)
 	for i := 0; i < 2000; i++ {
-		id, _ := m.Next()
+		id := m.Next()
 		no := en.Encode(id)
 		de, _ := en.Decode(no)
 		// t.Logf("\n%3d. ID: %d, De: %d, En: %s", i+1, id.Main, de.Main, no)
@@ -215,5 +223,28 @@ func TestMake(t *testing.T) {
 			t.Errorf("decode error: next(%d), decode(%d)", id.Main, de.Main)
 		}
 		m.NextString()
+	}
+}
+
+func TestID(t *testing.T) {
+	b, e := Make(*Shuffle(8, 4))
+	if e != nil {
+		t.Fatalf("want: a builder instance, got: error %s", e)
+		return
+	}
+	id := b.Next()
+	if len(id.Bytes()) != 16 {
+		t.Error("id.Bytes not expected")
+	}
+	if !id.Equal(id) {
+		t.Error("id.Equal not expected")
+	}
+	i2 := ID{
+		Main:   id.Main,
+		Ext:    id.Ext,
+		Signed: id.Signed,
+	}
+	if !i2.Equal(id) {
+		t.Error("id.Equal not expected")
 	}
 }

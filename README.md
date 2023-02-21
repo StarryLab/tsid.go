@@ -51,15 +51,24 @@ go get github.com/StarryLab/tsid.go
 package main
 
 import (
+  "flag"
   "fmt"
 
   . "github.com/StarryLab/tsid.go"
 )
 
-func main() {
+var (
+  host,
+  node int64
+)
+
+func init() {
   // $> ./tsid -host=8 -node=6
-  host := flag.Int("host", "data center(host) id")
-  node := flag.Int("node", "server node id")
+  host = *flag.Int64("host", 0, "data center(host) id")
+  node = *flag.Int64("node", 0, "server node id")
+}
+
+func main() {
   b, e := Snowflake(host, node)
   if e != nil {
     fmt.Println("Error: ", e)
@@ -81,10 +90,17 @@ import (
   . "github.com/StarryLab/tsid.go"
 )
 
+var (
+  server int64
+)
+
+func init() {
+  // $> ./tsid -server=8
+  server = *flag.Int64("server", 0, "server id")
+}
+
 func main() {
-  // $> ./tsid -host=8
-  host := flag.Int("host", "data center(host) id")
-  c, e := Simple(host)
+  c, e := Simple(server)
   if e != nil {
     fmt.Println("Error: ", e)
     return
@@ -104,11 +120,13 @@ func main() {
 package examples
 
 import (
-  "github.com/StarryLab/tsid.go"
+  "errors"
+  
+  . "github.com/StarryLab/tsid.go"
 )
 
 func init() {
-  tsid.Register("my_data_source", DemoDataSource{map[string]int64{
+  Register("my_data_source", DemoDataSource{{
     "demo": 1,
     "other": 9,
   }})
@@ -145,11 +163,11 @@ import (
 
 func main() {
   // Environment variable: SERVER_HOST, SERVER_NODE
-  opt := O(
+  opt := *O(
     Sequence(12),                         // 12 bits, REQUIRED!
-    Env(6, "SERVER_HOST", 0)              // 6 bits [0, 31], data center id
-    Env(4, "SERVER_NODE", 0)              // 4 bits [0, 15], server node id
-    Data(10, "my_data_source", 2, "demo") // 10 bits [0, 1023], data source
+    Env(6, "SERVER_HOST", 0),             // 6 bits [0, 31], data center id
+    Env(4, "SERVER_NODE", 0),             // 4 bits [0, 15], server node id
+    Data(10, "my_data_source", 2, "demo"),// 10 bits [0, 1023], data source
     Random(30),                           // 30 bits
     Timestamp(41, TimestampMilliseconds), // 41 bits, REQUIRED!
   )

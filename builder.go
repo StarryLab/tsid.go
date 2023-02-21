@@ -5,6 +5,7 @@ package tsid
 
 import (
 	cr "crypto/rand"
+	"encoding/binary"
 	"errors"
 	"os"
 	"strconv"
@@ -33,6 +34,27 @@ type ID struct {
 	Main,
 	Ext int64
 	Signed bool
+}
+
+func (id *ID) Equal(b *ID) bool {
+	if id == b {
+		return true
+	}
+	if id.Ext == b.Ext && id.Main == b.Main {
+		return id.Signed == b.Signed
+	}
+	return false
+}
+
+func (id *ID) Bytes() []byte {
+	m := make([]byte, 8)
+	binary.LittleEndian.AppendUint64(m, uint64(id.Main))
+	e := make([]byte, 8)
+	if id.Ext > 0 {
+		binary.LittleEndian.AppendUint64(e, uint64(id.Ext))
+	}
+	m = append(m, e...)
+	return m
 }
 
 func (id *ID) String() string {
@@ -76,27 +98,34 @@ type Builder struct {
 	options *Options
 
 	sequenceMask,
-	now,
 	sequence int64
+	info *DebugInfo
+	now  *time.Time
 }
 
-func (b *Builder) tick() (t time.Time, now, sequence int64) {
-	t = time.Now()
-	now = t.UnixNano() / nsPerMilliseconds
-	if now == b.now {
+// DebugInfo is used to obtain the debugging information of the latest ID
+func (b *Builder) DebugInfo() *DebugInfo {
+	return b.info
+}
+
+func (b *Builder) tick() (sequence int64) {
+	n := time.Now()
+	ms := n.UnixMilli()
+	bs := int64(0)
+	if b.now != nil {
+		bs = b.now.UnixMilli()
+	}
+	if ms == bs {
 		sequence = (b.sequence + 1) & b.sequenceMask
 		if sequence == 0 {
-			for now <= b.now {
-				t = time.Now()
-				now = t.UnixNano() / nsPerMilliseconds
+			for ms <= bs {
+				n = time.Now()
+				ms = n.UnixMilli()
 			}
 		}
 	}
-	b.now = now
+	b.now = &n
 	b.sequence = sequence
-	if b.options.EpochMS > 0 {
-		now -= b.options.EpochMS
-	}
 	return
 }
 
@@ -163,18 +192,20 @@ func Rand(w byte) int64 {
 	return int64(v & uint64(m))
 }
 
-func (b *Builder) time(t DateTimeType, tr time.Time, now int64) (f int64) {
+func (b *Builder) datetime(t DateTimeType, tr *time.Time) (f int64) {
+	epoch := b.options.EpochMS
+	if epoch < 0 {
+		epoch = 0
+	}
 	switch t {
 	case TimestampNanoseconds:
-		f = now * nsPerMilliseconds
+		f = tr.UnixNano() - epoch*nsPerMilliseconds
 	case TimestampMicroseconds:
-		f = now * usPerMilliseconds
-	case TimestampMilliseconds:
-		f = now
+		f = tr.UnixMicro() - epoch*usPerMilliseconds
 	case TimestampSeconds:
-		f = now / 1_000
+		f = tr.Unix() - epoch/msPerSecond
 	case TimeMillisecond:
-		f = now % 1000
+		f = tr.UnixMilli() % msPerSecond
 	case TimeSecond:
 		f = int64(tr.Second())
 	case TimeMinute:
@@ -195,7 +226,7 @@ func (b *Builder) time(t DateTimeType, tr time.Time, now int64) (f int64) {
 		f = int64(tr.YearDay()/7 + 1)
 	default:
 		// TimestampMilliseconds
-		f = now
+		f = tr.UnixMilli() - epoch
 	}
 	return f
 }
@@ -207,7 +238,7 @@ func (b *Builder) data(name string, query *[]interface{}) (int64, error) {
 	return 0, errors.New("data not found")
 }
 
-func (b *Builder) val(segment *Bits, tr time.Time, now int64, seq int64, argv []int64, a int, f int64) int64 {
+func (b *Builder) val(segment *Bits, tr *time.Time, seq int64, argv []int64, a int, f int64) int64 {
 	key := segment.Key
 	switch segment.Source {
 	case Args:
@@ -231,7 +262,7 @@ func (b *Builder) val(segment *Bits, tr time.Time, now int64, seq int64, argv []
 	case SequenceID:
 		f = seq
 	case DateTime:
-		f = b.time(DateTimeType(segment.Index), tr, now)
+		f = b.datetime(DateTimeType(segment.Index), tr)
 	case RandomID:
 		f = Rand(segment.Width)
 	case Provider:
@@ -242,9 +273,17 @@ func (b *Builder) val(segment *Bits, tr time.Time, now int64, seq int64, argv []
 	return f
 }
 
-func (b *Builder) Next(argv ...int64) (id *ID, info *DebugInfo) {
+// func (b *Builder) NextBytes(argv ...int64) (id *[]byte) {
+// }
+
+func (b *Builder) NextInt64(argv ...int64) int64 {
+	id := b.Next(argv...)
+	return id.Main
+}
+
+func (b *Builder) Next(argv ...int64) (id *ID) {
 	if !b.ready {
-		return nil, nil
+		return nil
 	}
 	b.Lock()
 	defer b.Unlock()
@@ -253,12 +292,13 @@ func (b *Builder) Next(argv ...int64) (id *ID, info *DebugInfo) {
 	var overflow bool
 	var main, ext int64
 	var vs []int64
-	tr, now, seq := b.tick()
+	seq := b.tick()
+	tr := b.now
 	a := 0
 	for _, segment := range b.options.segments {
 		f := segment.Value
 		mask := segment.mask
-		f = b.val(&segment, tr, now, seq, argv, a, f)
+		f = b.val(&segment, tr, seq, argv, a, f)
 		if segment.Source == Args {
 			a++
 		}
@@ -303,18 +343,22 @@ func (b *Builder) Next(argv ...int64) (id *ID, info *DebugInfo) {
 		Signed: b.options.Signed,
 	}
 	if b.Debug {
-		info = &DebugInfo{
-			Now:      now,
+		epoch := b.options.EpochMS
+		if epoch < 0 {
+			epoch = 0
+		}
+		b.info = &DebugInfo{
+			Now:      tr.UnixMilli() - epoch,
 			Sequence: seq,
 			Bits:     vs,
 		}
 	}
-	return id, info
+	return id
 }
 
 // NextString returns the next ID as a string.
 func (b *Builder) NextString(argv ...int64) string {
-	i, _ := b.Next(argv...)
+	i := b.Next(argv...)
 	e := b.Encoder
 	if e == nil {
 		return i.String()
