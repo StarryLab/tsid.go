@@ -26,21 +26,35 @@ func TestSnowflake(t *testing.T) {
 		t.Fatalf("want: an instance, got: error(%s)", e)
 		return
 	}
-	for i := 0; i < 10; i++ {
-		b.Next()
+	p := &ID{}
+	c := 5000
+	for i := 0; i < c; i++ {
+		v := b.Next()
+		// fmt.Printf("%3d. %+v\n", i+1, v)
+		if p.Equal(v) {
+			t.Error("invalid id, not auto-increment")
+		}
+		p = v
 	}
 }
 
 func TestSimple(t *testing.T) {
-	c, e := Simple(16)
+	next, e := Simple(16)
 	if e != nil {
 		if e.Error() != "server time error" {
 			t.Error("want: server time error, got: unknown error")
 		}
 		return
 	}
-	for i := 0; i < 10; i++ {
-		c()
+	p := int64(0)
+	c := 5000
+	for i := 0; i < c; i++ {
+		v := next()
+		if v <= p {
+			t.Error("error: invalid id, not auto-increment")
+		}
+		// fmt.Printf("%3d. %d %b\n", i+1, v, v)
+		p = v
 	}
 }
 

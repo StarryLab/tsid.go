@@ -27,10 +27,11 @@ func Snowflake(host, node int64) (*Builder, error) {
 func Simple(server int64) (func() int64, error) {
 	var b = struct {
 		sync.Mutex
+		start,
 		now,
 		sequence int64
 	}{}
-	s := []struct {
+	seg := []struct {
 		width byte
 		shift byte
 		mask  int64
@@ -39,31 +40,30 @@ func Simple(server int64) (func() int64, error) {
 		{10, 12, -1 ^ (-1 << 10)}, // server width 10 [0, 1023], middle
 		{41, 22, -1 ^ (-1 << 41)}, // timestamp width 41, high
 	}
-	if server < 0 || server > s[1].mask {
+	if server < 0 || server > seg[0].mask {
 		return nil, errors.New("server id is too small or too large")
 	}
-	now := time.Now().UnixNano() / nsPerMilliseconds
-	t := now - EpochMS
-	if t < 0 || t > s[2].mask {
+	b.start = time.Now().UnixNano() / nsPerMilliseconds
+	if b.start-EpochMS < 0 || b.start-EpochMS > seg[2].mask {
 		return nil, errors.New("server time error")
 	}
 	return func() int64 {
 		b.Lock()
 		defer b.Unlock()
-		b.sequence = 0
+		sequence := int64(0)
 		now := time.Now().UnixNano() / nsPerMilliseconds
 		if b.now == now {
-			b.sequence = (b.sequence + 1) & s[2].mask
-			if b.sequence == 0 {
+			sequence = (b.sequence + 1) & seg[0].mask
+			if sequence == 0 {
 				for b.now >= now {
 					now = time.Now().UnixNano() / nsPerMilliseconds
 				}
 			}
 		}
-		t := now - EpochMS
+		b.sequence = sequence
 		b.now = now
 		// order by: 2 timestamp, 1 server, 0 sequence
 		// MAYBE! The return value may be negative
-		return (t << s[2].shift) | (server << s[1].shift) | b.sequence
+		return ((now - EpochMS) << seg[2].shift) | (server << seg[1].shift) | b.sequence
 	}, nil
 }
