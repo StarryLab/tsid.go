@@ -9,15 +9,11 @@ package tsid
 //	}
 func SeqID(host, node int64) (func(args ...int64) int64, error) {
 	opt := Options{
-		settings: map[string]int64{
-			"Host": host,
-			"Node": node,
-		},
 		segments: []Bits{
-			Sequence(SequenceWidth),
+			Sequence(12),
 			Timestamp(41, TimestampMilliseconds),
-			Node(NodeWidth, node),
-			Host(HostWidth, host),
+			Fixed(4, node),
+			Fixed(6, host),
 		},
 	}
 	b, e := Make(opt)

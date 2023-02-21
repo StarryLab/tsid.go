@@ -83,9 +83,9 @@ func (id *ID) String() string {
 }
 
 type DebugInfo struct {
-	Now,
 	Sequence int64
-	Bits []int64
+	Bits     []int64
+	Now      time.Time
 }
 
 type Builder struct {
@@ -348,9 +348,9 @@ func (b *Builder) Next(argv ...int64) (id *ID) {
 			epoch = 0
 		}
 		b.info = &DebugInfo{
-			Now:      tr.UnixMilli() - epoch,
 			Sequence: seq,
 			Bits:     vs,
+			Now:      *tr,
 		}
 	}
 	return id
