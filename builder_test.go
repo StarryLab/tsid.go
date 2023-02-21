@@ -40,7 +40,7 @@ func TestExts(t *testing.T) {
 		_ = os.Unsetenv(key)
 	}(envTest)
 	opt := ExtsOptions(10, 120)
-	m, e := Make(opt)
+	m, e := New(opt)
 	if e != nil {
 		t.Fatal(e)
 		return

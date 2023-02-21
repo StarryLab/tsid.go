@@ -26,8 +26,8 @@ const (
 const (
 	// Cutoff is the smallest number such that cutoff*64 > maxUint64
 	cutoff           = 1 << 63
-	uint64Max        = 1<<64 - 1
 	uint63Max uint64 = 1<<63 - 1
+	// uint64Max        = 1<<64 - 1
 )
 
 type ID struct {
@@ -396,7 +396,7 @@ var checklist = []struct {
 	segment string
 	reason  string
 }{
-	{func(opt *Options) bool { return opt.ReservedDays <= 0 && EpochMS < 0 }, "EpochMS", errorEpochTooSmall},
+	{func(opt *Options) bool { return opt.ReservedDays <= 0 }, "EpochMS", errorEpochTooSmall},
 	{func(opt *Options) bool { return opt.EpochMS > time.Now().UnixNano()/nsPerMilliseconds }, "EpochMS", errorEpochTooLarge},
 	{func(opt *Options) bool { return len(opt.segments) <= 0 }, "Segments", errorSegmentsEmpty},
 	{func(opt *Options) bool { return len(opt.segments) > SegmentsLimit }, "Segments", errorSegmentsTooMany},
@@ -409,7 +409,7 @@ var checklist = []struct {
 	}, "EpochMS", errorTooPoor},
 }
 
-func checkSegment(opt *Options, index int, segment *Bits, required *map[DataSourceType]int) (v int64, err error) {
+func checkSegment(segment *Bits, required *map[DataSourceType]int) (v int64, err error) {
 	v = segment.Value
 	switch segment.Source {
 	case Static:
@@ -445,7 +445,7 @@ func Make(opt Options) (m *Builder, err error) {
 			return nil, invalidOption(rule.segment, rule.reason)
 		}
 	}
-	if opt.EpochMS <= 0 && EpochMS > 0 {
+	if opt.EpochMS <= 0 {
 		opt.EpochMS = EpochMS
 	}
 	// Options MUST include DateTime segment AND SequenceID segment.
@@ -468,7 +468,7 @@ func Make(opt Options) (m *Builder, err error) {
 		t += w
 		mask := int64(-1 ^ (-1 << w))
 		opt.segments[index].mask = mask
-		v, e := checkSegment(&opt, index, &segment, &required)
+		v, e := checkSegment(&segment, &required)
 		if e != nil {
 			return nil, e
 		}
