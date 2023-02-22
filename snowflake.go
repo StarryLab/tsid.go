@@ -10,20 +10,29 @@ import (
 // The value range of host is [0, 63].
 // The value range of node is [0, 15].
 func Snowflake(host, node int64) (*Builder, error) {
-	opt := *Default(host, node)
+	opt := Options{
+		EpochMS: EpochMS,
+		segments: []Bits{
+			Sequence(SequenceWidth),
+			Node(NodeWidth, node), // 4 bits [0, 15]
+			Host(HostWidth, host), // 6 bits [0, 31]
+			Timestamp(TimestampWidth, TimestampMilliseconds),
+		},
+	}
 	return Make(opt)
 }
 
 // Simple implements a classic snowflake algorithm(fixed width and position).
 // The value range of server is [0, 1023].
-//   if b, e := Simple(16); e == nil {
-//     fmt.Println("ID:")
-//     for i := 0; i < 100; i++ {
-//       fmt.Println(i+1, ". ", b())
-//     }
-//   } else {
-//     fmt.Println("Error: ", e)
-//   }
+//
+//	if b, e := Simple(16); e == nil {
+//	  fmt.Println("ID:")
+//	  for i := 0; i < 100; i++ {
+//	    fmt.Println(i+1, ". ", b())
+//	  }
+//	} else {
+//	  fmt.Println("Error: ", e)
+//	}
 func Simple(server int64) (func() int64, error) {
 	var b = struct {
 		sync.Mutex

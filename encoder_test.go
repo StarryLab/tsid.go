@@ -45,6 +45,24 @@ func TestBase64Zero(t *testing.T) {
 	}
 }
 
+func TestDecodeError(t *testing.T) {
+	tests := map[string]decodeErrorType{
+		"":  DecodeErrorEmpty,
+		"[": DecodeErrorInvalidDigit,
+	}
+	en := Base64{Aligned: true}
+	for n, e := range tests {
+		_, a := en.Decode(n)
+		if a != nil {
+			if x, o := a.(*DecodeError); !o || x.Type != e {
+				t.Error("unexpected errors occur")
+			}
+		} else {
+			t.Error("the expected error did not occur")
+		}
+	}
+}
+
 func BenchmarkBase64EncodeMain(b *testing.B) {
 	e := Base64{Aligned: true}
 	for i := 0; i < b.N; i++ {

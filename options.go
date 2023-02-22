@@ -1,8 +1,10 @@
 package tsid
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -34,7 +36,6 @@ const (
 
 	errorInvalidValue = "invalid value"
 
-	errorDataSource  = "data source not provided"
 	errorInvalidType = "invalid data source type"
 
 	errorTooPoor = "the end date has been reached and there are not enough identifiers"
@@ -85,6 +86,8 @@ const (
 	TimestampNanoseconds
 	TimestampMicroseconds
 	TimestampSeconds
+	TimeNanosecond
+	TimeMicrosecond
 	TimeMillisecond
 	TimeSecond
 	TimeMinute
@@ -102,8 +105,11 @@ var datetimeNames = []string{
 	"Timestamp.NanoSeconds",
 	"Timestamp.Microseconds",
 	"Timestamp.Seconds",
-	"Time.Minute",
+	"Time.Nanosecond",
+	"Time.Microsecond",
+	"Time.Millisecond",
 	"Time.Second",
+	"Time.Minute",
 	"Time.Hour",
 	"Time.Day",
 	"Time.Month",
@@ -158,7 +164,14 @@ const (
 )
 
 var dataSourceTypeNames = []string{
-	"Static", "Args", "OS", "Settings", "SequenceID", "DateTime", "RandomID", "Provider",
+	"Static",
+	"Args",
+	"OS",
+	"Settings",
+	"SequenceID",
+	"DateTime",
+	"RandomID",
+	"Provider",
 }
 
 func (d DataSourceType) String() string {
@@ -306,8 +319,11 @@ type Options struct {
 	settings map[string]int64
 }
 
-// Set to set the settings
+// Set to set the settings key and value
 func (o *Options) Set(k string, v int64) *Options {
+	if o.settings == nil {
+		o.settings = map[string]int64{}
+	}
 	o.settings[k] = v
 	return o
 }
@@ -320,7 +336,19 @@ func (o *Options) NewEpoch(v int64) *Options {
 
 // Add to appends a bit-segment declaration
 func (o *Options) Add(b Bits) *Options {
+	w := b.Width
+	b.mask = int64(-1 ^ (-1 << w))
 	o.segments = append(o.segments, b)
+	return o
+}
+
+// Patch is used to modify the settings of the bit field specified by w
+func (o *Options) Patch(offset byte, key string, index int, fallback int64) *Options {
+	if int(offset) < len(o.segments) {
+		o.segments[offset].Key = key
+		o.segments[offset].Index = index
+		o.segments[offset].Value = fallback
+	}
 	return o
 }
 
@@ -337,15 +365,16 @@ func Segments(segments ...Bits) (o *Options) {
 	return o
 }
 
-// Define is a shortcut for make Options,
-// segments MUST include DateTime segment AND SequenceID segment.
-func Define(settings map[string]int64, segments ...Bits) (o *Options) {
-	o = &Options{
-		settings: settings,
-		segments: segments,
-	}
-	return o
-}
+//
+//// Define is a shortcut for make Options,
+//// segments MUST include DateTime segment AND SequenceID segment.
+//func Define(settings map[string]int64, segments ...Bits) (o *Options) {
+//	o = &Options{
+//		settings: settings,
+//		segments: segments,
+//	}
+//	return o
+//}
 
 // Config is a shortcut for make Options,
 // segments MUST include DateTime segment AND SequenceID segment.
@@ -359,36 +388,183 @@ func Config(host, node int64, segments ...Bits) *Options {
 	}
 }
 
-// Default is a shortcut for make Options,
-// segments MUST include DateTime segment AND SequenceID segment.
-func Default(host, node int64) *Options {
-	return &Options{
-		settings: map[string]int64{
-			"Host": host,
-			"Node": node,
+const (
+	// EnvServerHost is data center id, type: byte, value range [0, 31], 6 bits
+	EnvServerHost = "SERVER_HOST_ID"
+	// EnvServerNode is server node id, type: byte, value range [0, 15], 4 bits
+	EnvServerNode = "SERVER_NODE_ID"
+	// EnvDomainId is geo region id, type: int32, value range [0, 65535], 16 bits
+	EnvDomainId = "SERVER_DOMAIN_ID"
+	// EnvTimeEpoch is server epoch timestamp, type: int64, [0, 9_223_372_036_854_775_807]
+	EnvTimeEpoch = "SERVER_EPOCH_TIMESTAMP"
+)
+
+var (
+	predefined = map[string]*Options{
+		"default": {
+			EpochMS: EpochMS,
+			segments: []Bits{
+				Sequence(SequenceWidth),
+				Env(NodeWidth, EnvServerNode, 0), // 4 bits [0, 15]
+				Env(HostWidth, EnvServerHost, 0), // 6 bits [0, 31]
+				Timestamp(TimestampWidth, TimestampMilliseconds),
+			},
 		},
-		segments: []Bits{
-			Sequence(SequenceWidth),
-			Node(NodeWidth, node),
-			Host(HostWidth, host),
-			Timestamp(TimestampWidth, TimestampMilliseconds),
+		// 126 bits
+		"random": {
+			EpochMS: EpochMS,
+			segments: []Bits{
+				Random(63),
+				Timestamp(31, TimestampSeconds),
+				Env(NodeWidth, EnvServerNode, 0),
+				Sequence(SequenceWidth),
+				Env(HostWidth, EnvServerHost, 0),
+				Timestamp(10, TimeMillisecond),
+			},
 		},
+		"sequence": {
+			segments: []Bits{
+				Sequence(12),
+				Timestamp(41, TimestampMilliseconds),
+				Env(NodeWidth, EnvServerNode, 0),
+				Env(HostWidth, EnvServerHost, 0),
+			},
+		},
+		// 126 bits
+		"openid": {
+			segments: []Bits{
+				Timestamp(31, TimestampSeconds),
+				Env(4, EnvServerNode, 0),
+				Sequence(14), // 14 bits [0, 16383]
+				Env(6, EnvServerHost, 0),
+				Timestamp(10, TimeMillisecond),
+				Env(16, EnvDomainId, 0),
+				Random(45),
+			},
+		},
+		// 126 bits
+		"test": {
+			segments: []Bits{
+				Timestamp(31, TimestampSeconds),    // 31 bits
+				Fixed(4, 9),                        // 4 bits
+				Env(10, EnvServerNode, 0),          // 10 bits
+				Sequence(12),                       // 12 bits
+				Data(5, "default", 3, "hit"),       // 5 bits
+				Env(10, EnvServerHost, 0),          // 10 bits
+				Data(5, "default", 9, "not_found"), // 5 bits
+				Arg(8, 0, 0),                       // 8 bits
+				Random(21),                         // 31 bits
+				Option(10, "test", 0),              // 10 bits
+				Timestamp(10, TimeMillisecond),     // 10 bits
+			},
+		},
+		// TODO: auto-increment
+	}
+	aliases = map[string]string{
+		"seqid":      "sequence",
+		"sequenceid": "sequence",
+		"classic":    "default",
+		"snowflake":  "default",
+		"shuffle":    "random",
+		"testing":    "test",
+		// TODO: auto-increment
+		// "increment":      "sequence",
+		// "auto-increment": "sequence",
+	}
+)
+
+func init() {
+	// reset EpochMS in all predefined options
+	if s, f := os.LookupEnv(EnvTimeEpoch); f {
+		if v, e := strconv.ParseInt(s, 10, 64); e == nil {
+			for k := range predefined {
+				predefined[k].EpochMS = v
+			}
+		}
 	}
 }
 
-// Shuffle is a shortcut for make Options.
-func Shuffle(host, node int64) *Options {
-	return &Options{
-		settings: map[string]int64{
-			"Host": host,
-			"Node": node,
-		},
-		segments: []Bits{
-			Sequence(SequenceWidth),
-			Node(NodeWidth, host),
-			Timestamp(31, TimestampSeconds),
-			Host(HostWidth, node),
-			Timestamp(10, TimeMillisecond),
-		},
+// Predefined obtains the predefined options specified by scope(case-insensitive),
+// which includes "Default"(aliases: classic, snowflake), "Random"(aliases: shuffle),
+// "OpenId", "SequenceId"(aliases: seq, seqid, increment, auto-increment),
+// "Test"(aliases: testing) ... etc
+func Predefined(scene string) (Options, bool) {
+	scene = strings.ToLower(scene)
+	if a, f := aliases[scene]; f {
+		scene = a
+	}
+	if o, f := predefined[scene]; f {
+		return *o, true
+	}
+	return Options{}, false
+}
+
+// Shuffle return predefined options "shuffle"(alias: random), 126 bits
+func Shuffle() Options {
+	return *predefined["random"]
+}
+
+// Default is a shortcut for make Options, which is the classic snowflake algorithm
+func Default() Options {
+	return *predefined["default"]
+}
+
+// OpenID is a shortcut for make Options, 126 bits
+func OpenID() Options {
+	return *predefined["openid"]
+}
+
+// SeqId is a shortcut for make Options
+func SeqId() Options {
+	return *predefined["sequence"]
+}
+
+// TODO: auto-increment
+//// IncrementId is a shortcut for make Options
+//func IncrementId() Options {
+//	return *predefined["increment"]
+//}
+
+// Define adds the predefined options
+func Define(scene string, options Options) bool {
+	if _, f := aliases[scene]; f {
+		return false
+	}
+	if _, f := predefined[scene]; f {
+		return false
+	}
+	predefined[scene] = &options
+	return true
+}
+
+func Play(count int) {
+	if count <= 0 {
+		count = 100
+	}
+	for n, o := range predefined {
+		fmt.Printf("\n❤️ Options[%s]\n___________________________________________\n", n)
+		b, e := New(*o)
+		if e != nil {
+			fmt.Printf("Options[%s] want: a builder instance, got error: %s\n", n, e)
+			continue
+		}
+		for i := 0; i < count; i++ {
+			id := b.Next()
+			if id.IsZero() {
+				fmt.Printf("Options[%s] want: valid ID, got zero\n", n)
+				continue
+			}
+			buf := id.Bytes()
+			m := binary.LittleEndian.Uint64(buf[:8])
+			x := uint64(0)
+			if len(buf) > 8 {
+				x = binary.LittleEndian.Uint64(buf[8:])
+			}
+			if int64(m) != id.Main || int64(x) != id.Ext {
+				fmt.Printf("ID.Bytes error: (%d, %d) != (%d, %d)\n", m, x, id.Main, id.Ext)
+				return
+			}
+			fmt.Printf("%3d. %d %d %s\n", i+1, id.Ext, id.Main, id.String())
+		}
 	}
 }
