@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// SegmentLimit is the maximum number of segments
+	// SegmentsLimit is the maximum number of segments
 	SegmentsLimit = 63
 	// EpochReservedDays indicates the minimum days approaching the end
 	EpochReservedDays = 7
@@ -115,7 +115,7 @@ var datetimeNames = []string{
 
 func (d DateTimeType) String() string {
 	if int(d) < len(datetimeNames) {
-		return datetimeNames[int(d)]
+		return datetimeNames[d]
 	}
 	return "Undefined"
 }
@@ -151,7 +151,7 @@ const (
 	SequenceID
 	// DateTime indicates that the value is from system unix timestamp in nanoseconds
 	DateTime
-	// Random indicates that the value is from a random number
+	// RandomID indicates that the value is from a random number
 	RandomID
 	// Provider indicates that the value is from data provider
 	Provider
@@ -163,7 +163,7 @@ var dataSourceTypeNames = []string{
 
 func (d DataSourceType) String() string {
 	if int(d) < len(dataSourceTypeNames) {
-		return dataSourceTypeNames[int(d)]
+		return dataSourceTypeNames[d]
 	}
 	return "Undefined"
 }

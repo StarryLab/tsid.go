@@ -396,7 +396,12 @@ var checklist = []struct {
 	segment string
 	reason  string
 }{
-	{func(opt *Options) bool { return opt.ReservedDays <= 0 }, "EpochMS", errorEpochTooSmall},
+	{func(opt *Options) bool {
+		if opt.ReservedDays < 0 {
+			return EpochMS >= 0
+		}
+		return false
+	}, "EpochMS", errorEpochTooSmall},
 	{func(opt *Options) bool { return opt.EpochMS > time.Now().UnixNano()/nsPerMilliseconds }, "EpochMS", errorEpochTooLarge},
 	{func(opt *Options) bool { return len(opt.segments) <= 0 }, "Segments", errorSegmentsEmpty},
 	{func(opt *Options) bool { return len(opt.segments) > SegmentsLimit }, "Segments", errorSegmentsTooMany},
