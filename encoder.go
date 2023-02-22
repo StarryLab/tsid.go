@@ -26,8 +26,9 @@ type Base64 struct {
 }
 
 type DecodeError struct {
-	No  string
-	Err error
+	No   string
+	Type decodeErrorType
+	Err  error
 }
 
 func (e *DecodeError) Error() string {
@@ -38,8 +39,8 @@ func (e *DecodeError) Unwrap() error {
 	return e.Err
 }
 
-func decodeError(num, reason string) *DecodeError {
-	return &DecodeError{No: num, Err: errors.New(reason)}
+func decodeError(no string, errorType decodeErrorType) *DecodeError {
+	return &DecodeError{No: no, Type: errorType, Err: errors.New(decodeErrors[errorType])}
 }
 
 func (e *Base64) Encode(id *ID) string {
@@ -92,10 +93,26 @@ func (e *Base64) Encode(id *ID) string {
 	return b.String()
 }
 
+type decodeErrorType int
+
+const (
+	DecodeErrorEmpty decodeErrorType = iota
+	DecodeErrorInvalidDigit
+	DecodeErrorOverflow
+	DecodeErrorOutOfRange
+)
+
+var decodeErrors = map[decodeErrorType]string{
+	DecodeErrorEmpty:        "number is empty",
+	DecodeErrorInvalidDigit: "invalid base64 digit",
+	DecodeErrorOverflow:     "number overflows",
+	DecodeErrorOutOfRange:   "value out of range",
+}
+
 func (e *Base64) Decode(no string) (id *ID, err error) {
 	w := len(no)
 	if w < 1 {
-		return nil, decodeError(no, "number cannot empty")
+		return nil, decodeError(no, DecodeErrorEmpty)
 	}
 	i := 0
 	s := no[0] == base64Signed
@@ -104,7 +121,7 @@ func (e *Base64) Decode(no string) (id *ID, err error) {
 		w--
 	}
 	if w < 1 {
-		return nil, decodeError(no, "invalid base64 number")
+		return nil, decodeError(no, DecodeErrorInvalidDigit)
 	}
 	var m, x string
 	if w > base64Widths {
@@ -164,7 +181,7 @@ func formatBits(u int64) []byte {
 // [https://cs.opensource.google/go/go/+/refs/tags/go1.16:src/strconv/atoi.go]
 func parseBits(s string) (v int64, err error) {
 	if s == "" {
-		return 0, decodeError(s, "number cannot empty")
+		return 0, decodeError(s, DecodeErrorEmpty)
 	}
 	b := 64
 	maxVal := uint64(1)<<uint(b) - 1
@@ -172,12 +189,12 @@ func parseBits(s string) (v int64, err error) {
 	for _, c := range []byte(s) {
 		d := bytes.IndexByte([]byte(base64Digits), c)
 		if d < 0 {
-			return 0, decodeError(s, "invalid digit")
+			return 0, decodeError(s, DecodeErrorInvalidDigit)
 		}
 		if n >= cutoff {
 			// n*base overflows
 			n = maxVal
-			err = decodeError(s, "number overflows")
+			err = decodeError(s, DecodeErrorOverflow)
 			break
 		}
 		n *= 64
@@ -185,7 +202,7 @@ func parseBits(s string) (v int64, err error) {
 		if n1 < n || n1 > maxVal {
 			// n+d overflows
 			n = maxVal
-			err = decodeError(s, "number overflows")
+			err = decodeError(s, DecodeErrorOverflow)
 			break
 		}
 		n = n1
@@ -193,8 +210,22 @@ func parseBits(s string) (v int64, err error) {
 
 	co := uint64(1 << uint(63))
 	if n >= co {
-		return int64(co - 1), decodeError(s, "value out of range")
+		return int64(co - 1), decodeError(s, DecodeErrorOutOfRange)
 	}
 
 	return int64(n), nil
 }
+
+// TODO: shuffle
+//var (
+//	base64Shuffles = base64Digits
+//)
+//
+//func init() {
+//	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+//	buf := []byte(base64Digits)
+//	r.Shuffle(len(buf), func(i, j int) {
+//		buf[i], buf[j] = buf[j], buf[i]
+//	})
+//	base64Shuffles = string(buf)
+//}

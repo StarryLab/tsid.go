@@ -17,7 +17,7 @@ import (
 const (
 	nsPerMilliseconds = 1_000_000
 	usPerMilliseconds = 1_000
-	msPerSecond       = 1000
+	msPerSecond       = 1_000
 	msPerMinute       = 60 * msPerSecond
 	msPerHour         = 60 * msPerMinute
 	msPerDay          = 24 * msPerHour
@@ -36,6 +36,10 @@ type ID struct {
 	Signed bool
 }
 
+func (id *ID) IsZero() bool {
+	return id.Main == 0 && id.Ext == 0
+}
+
 func (id *ID) Equal(b *ID) bool {
 	if id == b {
 		return true
@@ -47,14 +51,15 @@ func (id *ID) Equal(b *ID) bool {
 }
 
 func (id *ID) Bytes() []byte {
-	m := make([]byte, 8)
-	binary.LittleEndian.AppendUint64(m, uint64(id.Main))
-	e := make([]byte, 8)
+	var buf []byte
 	if id.Ext > 0 {
-		binary.LittleEndian.AppendUint64(e, uint64(id.Ext))
+		buf = make([]byte, 16)
+		binary.LittleEndian.PutUint64(buf[8:], uint64(id.Ext))
+	} else {
+		buf = make([]byte, 8)
 	}
-	m = append(m, e...)
-	return m
+	binary.LittleEndian.PutUint64(buf[:8], uint64(id.Main))
+	return buf
 }
 
 func (id *ID) String() string {
@@ -84,7 +89,7 @@ func (id *ID) String() string {
 
 type DebugInfo struct {
 	Sequence int64
-	Bits     []int64
+	Raw      []int64
 	Now      time.Time
 }
 
@@ -204,6 +209,10 @@ func (b *Builder) datetime(t DateTimeType, tr *time.Time) (f int64) {
 		f = tr.UnixMicro() - epoch*usPerMilliseconds
 	case TimestampSeconds:
 		f = tr.Unix() - epoch/msPerSecond
+	case TimeNanosecond:
+		f = tr.UnixNano() % (nsPerMilliseconds * msPerSecond)
+	case TimeMicrosecond:
+		f = tr.UnixMicro() % (usPerMilliseconds * msPerSecond)
 	case TimeMillisecond:
 		f = tr.UnixMilli() % msPerSecond
 	case TimeSecond:
@@ -273,7 +282,11 @@ func (b *Builder) val(segment *Bits, tr *time.Time, seq int64, argv []int64, a i
 	return f
 }
 
-// func (b *Builder) NextBytes(argv ...int64) (id *[]byte) {
+// TODO: checksum
+// func (b *Builder) crc32(argv ...int64) int32 {
+// }
+// TODO: bytes
+// func (b *Builder) Bytes(argv ...int64) []byte {
 // }
 
 func (b *Builder) NextInt64(argv ...int64) int64 {
@@ -288,8 +301,7 @@ func (b *Builder) Next(argv ...int64) (id *ID) {
 	b.Lock()
 	defer b.Unlock()
 	// ready
-	var shift byte
-	var overflow bool
+	var shift, width byte
 	var main, ext int64
 	var vs []int64
 	seq := b.tick()
@@ -299,43 +311,38 @@ func (b *Builder) Next(argv ...int64) (id *ID) {
 		f := segment.Value
 		mask := segment.mask
 		f = b.val(&segment, tr, seq, argv, a, f)
-		if segment.Source == Args {
-			a++
-		}
 		if b.Debug {
 			vs = append(vs, f)
 		}
+		if segment.Source == Args {
+			a++
+		}
 		if f < 0 {
-			// TODO: negative
+			// MAYBE: negative
 			f = 0
 		}
 		if f > mask {
 			f &= mask
 		}
 		v := uint64(f)
-		v2 := v
-		if shift > 0 {
-			v <<= shift
-			if v >= uint63Max {
-				v &= uint63Max
-			}
+		width += segment.Width
+		if width > bitsMaxWidth*2 {
+			panic("segments width out of range")
 		}
-		if !overflow {
+		if width <= bitsMaxWidth {
+			v = (v << shift) & uint63Max
 			main |= int64(v)
-			sw := shift + segment.Width
-			if sw > bitsMaxWidth {
-				shift = sw - bitsMaxWidth
-				ext = int64(v2 >> (segment.Width - shift))
-			} else {
-				shift += segment.Width
-			}
-			if sw >= bitsMaxWidth {
-				overflow = true
-			}
+		} else if width-segment.Width < bitsMaxWidth {
+			v2 := v
+			v = v << shift & uint63Max
+			main |= int64(v)
+			v2 = (v2 >> (bitsMaxWidth - shift)) & uint63Max
+			ext |= int64(v2)
 		} else {
-			shift += segment.Width
+			v = (v << shift) & uint63Max
 			ext |= int64(v)
 		}
+		shift = width % bitsMaxWidth
 	}
 	id = &ID{
 		Main:   main,
@@ -349,7 +356,7 @@ func (b *Builder) Next(argv ...int64) (id *ID) {
 		}
 		b.info = &DebugInfo{
 			Sequence: seq,
-			Bits:     vs,
+			Raw:      vs,
 			Now:      *tr,
 		}
 	}
