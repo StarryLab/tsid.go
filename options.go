@@ -527,6 +527,7 @@ func SeqId() Options {
 
 // Define adds the predefined options
 func Define(scene string, options Options) bool {
+	scene = strings.ToLower(scene)
 	if _, f := aliases[scene]; f {
 		return false
 	}
